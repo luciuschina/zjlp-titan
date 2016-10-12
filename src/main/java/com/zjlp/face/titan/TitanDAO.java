@@ -2,25 +2,24 @@ package com.zjlp.face.titan;
 
 import com.zjlp.face.bean.Relation;
 
-import java.util.List;
-
-/**
- * Created by root on 10/11/16.
- */
 public interface TitanDAO {
-    void addUsername(String userName);
+    public void addUser(String userName);
 
-    void addUsernames(List<String> userNames);
+    public void addUsers(String[] userNames);
 
-    void addRelation(Relation relation);
+    public void addUsers(String[] userNames, int patchLength);
 
-    void addRelations(List<Relation> relations);
+    public void addRelation(Relation relation);
 
-    void deleteUsername(String userName);
+    public void addRelations(Relation[] relations);
 
-    void deleteUsernames(List<String> userNames);
+    public void addRelations(Relation[] relations, int patchLength);
 
-    void deleteRelation(Relation relation);
+    public void dropUser(String userName);
 
-    void deleteRelations(List<Relation> relations);
+    public void dropUsers(String[] userNames);
+
+    public void dropRelation(Relation relation);
+
+    public void dropRelations(Relation[] relations);
 }
