@@ -2,9 +2,6 @@ package com.zjlp.face.bean;
 
 import java.io.Serializable;
 
-/**
- * Created by root on 10/11/16.
- */
 public class Relation implements Serializable {
 
     private String userName;

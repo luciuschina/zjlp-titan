@@ -1,25 +1,53 @@
 package com.zjlp.face.titan;
 
 import com.zjlp.face.bean.Relation;
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
+
+import java.util.List;
+import java.util.Map;
 
 public interface TitanDAO {
-    public void addUser(String userName);
+    String addUser(String userName, Boolean autoCommit);
 
-    public void addUsers(String[] userNames);
+    String addUser(String userName);
 
-    public void addUsers(String[] userNames, int patchLength);
+    void addRelationByVID(String userId, String friendId, Boolean autoCommit);
 
-    public void addRelation(Relation relation);
+    void addRelationByVID(String userId, String friendId);
 
-    public void addRelations(Relation[] relations);
+    void addRelationByVID(String userId, String friendId,GraphTraversalSource g, Boolean autoCommit);
 
-    public void addRelations(Relation[] relations, int patchLength);
+    void addUsers(String[] userNames);
 
-    public void dropUser(String userName);
+    void addUsers(String[] userNames, int patchLength);
 
-    public void dropUsers(String[] userNames);
+    void addRelation(Relation relation);
 
-    public void dropRelation(Relation relation);
+    void addRelationsByUsername(Relation[] relations);
 
-    public void dropRelations(Relation[] relations);
+    void addRelationsByUsername(Relation[] relations, int patchLength);
+
+    void addRelationsByUsername(String username, List<String> friendsList);
+
+    void dropUser(String userName);
+
+    void dropUsers(String[] userNames);
+
+    void dropRelation(Relation relation);
+
+    void dropRelations(Relation[] relations);
+
+    List<String> getOneDegreeFriends(String username);
+
+    List<String> getOneDegreeFriends(String username, List<String> friends);
+
+    List<String> getTwoDegreeFriends(String username);
+
+    List<String> getTwoDegreeFriends(String username, List<String> friends);
+
+    Map<String, Integer> getOneAndTwoDegreeFriends(String username, List<String> friends);
+
+    Map<String, Integer> getComFriendsNum(String username, List<String> friends);
+
+    public void closeTitanGraph();
 }
