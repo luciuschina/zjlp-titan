@@ -66,7 +66,6 @@ public class TitanInit extends TitanCon {
         ti.cleanTitanGraph();
         ti.createVertexLabel();
         ti.createEdgeLabel();
-        //ti.createIndex();
         ti.closeTitanGraph();
     }
 }

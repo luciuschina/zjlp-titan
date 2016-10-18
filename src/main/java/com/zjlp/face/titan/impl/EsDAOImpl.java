@@ -1,8 +1,9 @@
-package com.zjlp.face.titan;
+package com.zjlp.face.titan.impl;
 
 import com.zjlp.face.bean.UsernameVID;
 import com.zjlp.face.spark.base.Props;
 import com.zjlp.face.spark.utils.EsUtils;
+import com.zjlp.face.titan.IEsDAO;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
@@ -10,11 +11,13 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
 import java.util.List;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
-
-public class EsDAOImpl {
+@Service("EsDAOImpl")
+public class EsDAOImpl implements IEsDAO {
     private static final Logger LOGGER = LoggerFactory.getLogger(EsDAOImpl.class);
     private Client esClient = null;
 
@@ -54,7 +57,6 @@ public class EsDAOImpl {
             LOGGER.warn("return null!. ES的titan-es这个索引中没有这个id:"+username);
             return null;
         }
-
     }
 
     public void closeClient() {
@@ -62,18 +64,6 @@ public class EsDAOImpl {
     }
 
     public static void main(String[] args) {
-        EsDAOImpl dao = new EsDAOImpl();
-
-
-        long b1 = System.currentTimeMillis();
-        System.out.println(dao.getVertexId("123dddd"));
-        System.out.println((System.currentTimeMillis()-b1) + "ms");
-        long b2 = System.currentTimeMillis();
-        System.out.println(dao.getVertexId("1236"));
-        System.out.println((System.currentTimeMillis()-b2) + "ms");
-        System.out.println(dao.getVertexId("123"));
-        System.out.println(dao.getVertexId("123dddd"));
-        System.out.println(dao.getVertexId("123dddd"));
 
     }
 }

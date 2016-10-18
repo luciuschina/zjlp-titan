@@ -1,26 +1,29 @@
-package com.zjlp.face.titan;
+package com.zjlp.face.titan.impl;
 
 import com.thinkaurelius.titan.core.SchemaViolationException;
-import com.thinkaurelius.titan.core.TitanVertex;
 import com.zjlp.face.bean.Relation;
+import com.zjlp.face.titan.IEsDAO;
+import com.zjlp.face.titan.TitanCon;
+import com.zjlp.face.titan.ITitanDAO;
 import org.apache.tinkerpop.gremlin.process.traversal.P;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
 import org.apache.tinkerpop.gremlin.process.traversal.util.FastNoSuchElementException;
-import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class TitanDAOImpl extends TitanCon implements TitanDAO {
-    private static EsDAOImpl esDAO = new EsDAOImpl();
+@Service("TitanDAOImpl")
+public class TitanDAOImpl extends TitanCon implements ITitanDAO {
+    private static IEsDAO esDAO = new EsDAOImpl();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TitanDAOImpl.class);
 
@@ -79,8 +82,6 @@ public class TitanDAOImpl extends TitanCon implements TitanDAO {
         } catch (Exception e) {
             LOGGER.error("addRelationByVID出现异常",e);
         }
-
-
     }
 
     public void addRelationByVID(String userId, String friendId) {
@@ -144,7 +145,6 @@ public class TitanDAOImpl extends TitanCon implements TitanDAO {
                 LOGGER.info("add failed:" + username + " -knows-> " + friend, e);
             }
         }
-
     }
 
     private void addRelationByUsername(Relation relation, GraphTraversalSource g) {
@@ -357,9 +357,6 @@ public class TitanDAOImpl extends TitanCon implements TitanDAO {
         //dao.testAddGraph();
 /*        TitanVertex tv = dao.getTitanGraph().addVertex(T.label, "person", "username", System.currentTimeMillis());
         System.out.println(tv.id());*/
-
         dao.closeTitanGraph();
-
-
     }
 }

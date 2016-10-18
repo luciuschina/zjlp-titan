@@ -6,7 +6,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSo
 import java.util.List;
 import java.util.Map;
 
-public interface TitanDAO {
+public interface ITitanDAO {
     String addUser(String userName, Boolean autoCommit);
 
     String addUser(String userName);
@@ -37,18 +37,20 @@ public interface TitanDAO {
 
     void dropRelations(Relation[] relations);
 
+    Map<String, Integer> getOneAndTwoDegreeFriends(String username, List<String> friends);
+
+    Map<String, Integer> getComFriendsNum(String username, String[] friends);
+
+    public void closeTitanGraph();
+
+ /*
     List<String> getOneDegreeFriends(String username);
 
     List<String> getOneDegreeFriends(String username, List<String> friends);
 
     List<String> getTwoDegreeFriends(String username);
 
-    List<String> getTwoDegreeFriends(String username, List<String> friends);
-
-    Map<String, Integer> getOneAndTwoDegreeFriends(String username, List<String> friends);
-
-    Map<String, Integer> getComFriendsNum(String username, String[] friends);
+    List<String> getTwoDegreeFriends(String username, List<String> friends);*/
 
 
-    public void closeTitanGraph();
 }

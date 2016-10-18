@@ -3,7 +3,8 @@ package com.zjlp.face.spark.base
 import java.util
 
 import com.zjlp.face.bean.UsernameVID
-import com.zjlp.face.titan.{EsDAOImpl, TitanInit, TitanDAOImpl}
+import com.zjlp.face.titan.impl.{TitanDAOImpl, EsDAOImpl}
+import com.zjlp.face.titan.TitanInit
 import org.apache.spark.Logging
 /**
  * Created by root on 10/12/16.
