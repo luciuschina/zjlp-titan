@@ -5,6 +5,7 @@ import com.thinkaurelius.titan.core.Multiplicity;
 import com.thinkaurelius.titan.core.TitanGraph;
 import com.thinkaurelius.titan.core.schema.TitanManagement;
 import com.thinkaurelius.titan.core.util.TitanCleanup;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,16 +14,17 @@ public class TitanInit extends TitanCon {
     private static final Logger LOGGER = LoggerFactory.getLogger(TitanInit.class);
 
     /**
-     * 为username这个顶点的属性建立唯一索引
+     * 为username这个顶点的属性建立索引. 为了保证username的唯一性.
+     * 如果不建立索引，也能保证username属性的唯一性，那么可以不建立索引。
      */
-    /*public void createIndex() {
+    public void createIndex() {
         TitanManagement mgmt = getTitanGraph().openManagement();
-        mgmt.buildIndex("usernameIndex", Vertex.class).
+        mgmt.buildIndex("usernameIndex" , Vertex.class).
                 addKey(mgmt.getPropertyKey("username")).
-                indexOnly(mgmt.getVertexLabel("person")).
                 unique().buildCompositeIndex();
         mgmt.commit();
-    }*/
+        LOGGER.info("为username创建索引");
+    }
 
     /**
      * 清空图,删除所有的顶点、边和索引
@@ -66,6 +68,7 @@ public class TitanInit extends TitanCon {
         ti.cleanTitanGraph();
         ti.createVertexLabel();
         ti.createEdgeLabel();
+        ti.createIndex();
         ti.closeTitanGraph();
     }
 }

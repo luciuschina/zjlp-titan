@@ -6,9 +6,7 @@ import com.zjlp.face.bean.UsernameVID
 import com.zjlp.face.titan.impl.{TitanDAOImpl, EsDAOImpl}
 import com.zjlp.face.titan.TitanInit
 import org.apache.spark.Logging
-/**
- * Created by root on 10/12/16.
- */
+
 class DataMigration extends Logging with scala.Serializable {
   def getRelationFromMySqlDB = {
     MySQLContext.instance().read.format("jdbc").options(Map(
@@ -53,12 +51,16 @@ class DataMigration extends Logging with scala.Serializable {
         val titanDao = new TitanDAOImpl()
         val esDao = new EsDAOImpl()
         val list: util.List[UsernameVID] = new util.ArrayList[UsernameVID]()
+        var count = 0
         usernameRDD.foreach {
-          username => list.add(new UsernameVID(username, titanDao.addUser(username, true)))
+          username =>
+            list.add(new UsernameVID(username, titanDao.addUserForSpark(username)))
+            count = count + 1
+            if (count % 1000 == 0) titanDao.getGraphTraversal.tx().commit()
         }
-        titanDao.getGraphTraversal.tx().commit();
-        titanDao.closeTitanGraph();
-        esDao.multiCreate(list);
+        titanDao.getGraphTraversal.tx().commit()
+        titanDao.closeTitanGraph()
+        esDao.multiCreate(list)
     }
   }
 
@@ -68,7 +70,7 @@ class DataMigration extends Logging with scala.Serializable {
     MySQLContext.instance().sql("select usernameVID,vertexId as loginAccountVID from  (select vertexId as usernameVID,loginAccount from relation inner join usernameVertexIdMap on usernameInES = username) b inner join usernameVertexIdMap on usernameInES = loginAccount")
       .map(r => (r(0).toString, r(1).toString)).distinct().foreachPartition {
       pairRDDs =>
-        val titanDao = new TitanDAOImpl()
+        val titanDao: TitanDAOImpl = new TitanDAOImpl()
         var count = 0
         pairRDDs.foreach {
           pairRDD =>
@@ -77,17 +79,18 @@ class DataMigration extends Logging with scala.Serializable {
             if (count % 1000 == 0) titanDao.getGraphTraversal.tx().commit()
         }
         titanDao.getGraphTraversal.tx().commit()
-        titanDao.closeTitanGraph();
+        titanDao.closeTitanGraph()
     }
     logInfo(s"addRelations 耗时:${(System.currentTimeMillis() - beginTime) / 1000}s")
   }
 
   def clearAndInit(): Unit = {
     val ti: TitanInit = new TitanInit()
-    ti.cleanTitanGraph
-    ti.createVertexLabel
-    ti.createEdgeLabel
-    ti.closeTitanGraph
+    ti.cleanTitanGraph()
+    ti.createVertexLabel()
+    ti.createEdgeLabel()
+    ti.createIndex()
+    ti.closeTitanGraph()
   }
 
 }

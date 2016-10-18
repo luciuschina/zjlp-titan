@@ -1,7 +1,7 @@
 package com.zjlp.face.titan.impl;
 
 import com.thinkaurelius.titan.core.SchemaViolationException;
-import com.zjlp.face.bean.Relation;
+import com.zjlp.face.bean.UsernameVID;
 import com.zjlp.face.titan.IEsDAO;
 import com.zjlp.face.titan.TitanCon;
 import com.zjlp.face.titan.ITitanDAO;
@@ -11,12 +11,10 @@ import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSo
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
 import org.apache.tinkerpop.gremlin.process.traversal.util.FastNoSuchElementException;
 import org.apache.tinkerpop.gremlin.structure.T;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,218 +25,138 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TitanDAOImpl.class);
 
-    public String addUser(String userName, Boolean autoCommit) {
+    /**
+     * 给Spark批量处理用
+     *
+     * @param userName
+     * @return
+     */
+    public String addUserForSpark(String userName) {
         String vid = null;
         try {
             vid = addUserGremlin(userName);
-            if (autoCommit) getTitanGraph().tx().commit();
             LOGGER.debug("插入新用户:" + userName);
         } catch (Exception e) {
-            LOGGER.error("用户'" + userName + "'已经存在,插入失败", e);
+            LOGGER.error("用户'" + userName + "'已经存在,插入失败" , e);
             getTitanGraph().tx().rollback();
         }
         return vid;
     }
 
+    /**
+     * 新增一个用户
+     *
+     * @param userName
+     * @return
+     */
     public String addUser(String userName) {
-        return addUser(userName, true);
+        String vid = null;
+        try {
+            vid = addUserGremlin(userName);
+            getTitanGraph().tx().commit();
+            esDAO.create(new UsernameVID(userName, vid));
+            LOGGER.debug("插入新用户:" + userName);
+        } catch (Exception e) {
+            LOGGER.error("用户'" + userName + "'已经存在,插入失败" , e);
+            getTitanGraph().tx().rollback();
+        }
+        return vid;
     }
 
-    public void addUsers(String[] userNames, int patchLength) {
-        GraphTraversalSource g = getGraphTraversal();
-        int len = userNames.length;
-        LOGGER.info("len:" + len);
-        int patchNum = len % patchLength == 0 ? (len / patchLength) : (len / patchLength + 1);
-        for (int i = 0; i < patchNum; i++) {
-            LOGGER.info("增加第" + (i + 1) + "/" + patchNum + "批，每批" + patchLength + "条...");
-            int curPatchEnd = patchLength * (i + 1) < len ? patchLength * (i + 1) : len;
-            try {
-                for (int j = patchLength * i; j < curPatchEnd; j++) {
-                    addUserGremlin(userNames[j]);
-                    LOGGER.debug("add person:" + userNames[j]);
-                }
-                g.tx().commit();
-            } catch (Exception e) {
-                g.tx().rollback();
-                //该批次由于插入失败,所以重新插入。改成每插入一条就提交一次
-                addAndCommitUserOneByOne(userNames, patchLength * i, curPatchEnd);
-            }
+    /**
+     * 增加多个用户
+     *
+     * @param userNames
+     */
+    public void addUsers(List<String> userNames) {
+        for (String userName : userNames) {
+            addUser(userName);
         }
     }
 
-    public void addUsers(String[] userNames) {
-        addUsers(userNames, 500);
-    }
-
-    public void addRelationByVID(String userId, String friendId, GraphTraversalSource g, Boolean autoCommit) {
+    /**
+     * 通过顶点id，增加一个好友关系，给Spark批量处理用
+     *
+     * @param userVID
+     * @param friendVID
+     * @param autoCommit true表示自动提交事物。false表示手动提交事务，适用于批量提交时。
+     */
+    public void addRelationByVID(String userVID, String friendVID, Boolean autoCommit) {
+        GraphTraversalSource g = getGraphTraversal();
         try {
-            //System.out.println("增加" + userId + "->" + friendId);
-            g.V(userId).next().addEdge("knows", g.V(friendId).next());
-            if(autoCommit) g.tx().commit();
+            g.V(userVID).next().addEdge("knows" , g.V(friendVID).next());
+            if (autoCommit) g.tx().commit();
         } catch (FastNoSuchElementException e) {
-            LOGGER.warn("没有这个vertex id:" + userId + " or " + friendId, e);
+            LOGGER.warn("没有这个vertex id:" + userVID + " or " + friendVID, e);
         } catch (SchemaViolationException e) {
-            LOGGER.warn("已经存在这条边:" + userId + " -knows-> " + friendId, e);
+            LOGGER.warn("已经存在这条边:" + userVID + " -knows-> " + friendVID, e);
         } catch (Exception e) {
-            LOGGER.error("addRelationByVID出现异常",e);
+            LOGGER.error("addRelationByVID出现异常" , e);
         }
-    }
-
-    public void addRelationByVID(String userId, String friendId) {
-        addRelationByVID(userId, friendId, true);
-    }
-
-    public void addRelationByVID(String userId, String friendId, Boolean autoCommit) {
-        addRelationByVID(userId, friendId, getGraphTraversal(), autoCommit);
-    }
-
-    public void addRelation(Relation relation) {
-        GraphTraversalSource g = getGraphTraversal();
-        try {
-            addRelationByUsername(relation, g);
-            g.tx().commit();
-            LOGGER.info("add " + relation.getUserName() + " -knows-> " + relation.getFriendName());
-        } catch (Exception e) {
-            LOGGER.info("插入失败", e);
-            e.printStackTrace();
-            g.tx().rollback();
-        }
-    }
-
-    public void addRelationsByUsername(Relation[] relations, int patchLength) {
-        GraphTraversalSource g = getGraphTraversal();
-        int len = relations.length;
-        LOGGER.info("len:" + len);
-        int patchNum = len % patchLength == 0 ? (len / patchLength) : (len / patchLength + 1);
-        for (int i = 0; i < patchNum; i++) {
-            LOGGER.info("增加第" + (i + 1) + "/" + patchNum + "批Relations，每批" + patchLength + "条...");
-            int curPatchEnd = patchLength * (i + 1) < len ? patchLength * (i + 1) : len;
-            try {
-                LOGGER.info("curPatchEnd:" + curPatchEnd);
-                for (int j = patchLength * i; j < curPatchEnd; j++) {
-                    addRelationByUsername(relations[j], g);
-                    LOGGER.debug("add " + relations[j].getUserName() + " -knows-> " + relations[j].getFriendName());
-                }
-                g.tx().commit();
-            } catch (Exception e) {
-                g.tx().rollback();
-                //该批次由于插入失败,所以重新插入。改成每插入一条就提交一次
-                addAndCommitRelationsOneByOne(relations, patchLength * i, curPatchEnd, g);
-            }
-        }
-    }
-
-    public void addRelationsByUsername(Relation[] relations) {
-        addRelationsByUsername(relations, 500);
-    }
-
-    public void addRelationsByUsername(String username, List<String> friendsList) {
-        GraphTraversalSource g = getGraphTraversal();
-        Vertex user = g.V().has("username", username).next();
-        List<Vertex> friends = g.V().where(__.values("username").is(P.within(friendsList))).toList();
-        for (Vertex friend : friends) {
-            try {
-                user.addEdge("knows", friend);
-                g.tx().commit();
-            } catch (Exception e) {
-                g.tx().rollback();
-                LOGGER.info("add failed:" + username + " -knows-> " + friend, e);
-            }
-        }
-    }
-
-    private void addRelationByUsername(Relation relation, GraphTraversalSource g) {
-        g.V().has("username", relation.getUserName()).next().
-                addEdge("knows", g.V().has("username", relation.getFriendName()).next());
     }
 
     private String addUserGremlin(String username) {
-        return getTitanGraph().addVertex(T.label, "person", "username", username).id().toString();
+        return getTitanGraph().addVertex(T.label, "person" , "username" , username).id().toString();
     }
 
-    private void addAndCommitRelationsOneByOne(Relation[] relations, int beginIndex, int endIndex, GraphTraversalSource g) {
-        for (int j = beginIndex; j < endIndex; j++) {
-            try {
-                addRelationByUsername(relations[j], g);
-                g.tx().commit();
-            } catch (Exception e1) {
-                LOGGER.error("Edge插入失败: " + relations[j].getUserName() + " -knows-> " + relations[j].getFriendName(), e1);
-                g.tx().rollback();
-            }
+    /**
+     * 增加一个好友关系
+     * @param username
+     * @param friendUsername
+     * @param autoCommit true表示自动提交事物。false表示手动提交事务，适用于批量提交时。
+     */
+    public void addRelation(String username, String friendUsername, Boolean autoCommit) {
+        GraphTraversalSource g = getGraphTraversal();
+        try {
+            g.V(esDAO.getVertexId(username)).next().addEdge("knows" , g.V(esDAO.getVertexId(friendUsername)).next());
+            if (autoCommit) g.tx().commit();
+        } catch (FastNoSuchElementException e) {
+            LOGGER.warn("addRelation 失败,username:"+username+" or friendUsername:"+friendUsername+"找不到相应的 vertex id。", e);
+        } catch (SchemaViolationException e) {
+            LOGGER.warn("已经存在这条边:" + username + " -knows-> " + friendUsername, e);
+        } catch (Exception e) {
+            LOGGER.error("addRelationByVID出现异常" , e);
         }
     }
 
-    private void addAndCommitUserOneByOne(String[] username, int beginIndex, int endIndex) {
-        for (int j = beginIndex; j < endIndex; j++) {
-            try {
-                addUserGremlin(username[j]);
-                getTitanGraph().tx().commit();
-            } catch (Exception e1) {
-                LOGGER.error("person 插入失败:已经存在 " + username[j]);
-                getTitanGraph().tx().rollback();
-            }
-        }
-    }
-
-    public void dropUser(String userName) {
+/*    public void dropUser(String userName) {
         GraphTraversalSource g = getTitanGraph().traversal();
         try {
-            g.V().has("username", userName).drop().iterate();
+            g.V().has("username" , userName).drop().iterate();
             g.tx().commit();
+            //TODO ES中删除索引
             LOGGER.info("删除用户：" + userName);
         } catch (Exception e) {
-            LOGGER.error("person" + userName + "删除失败", e);
+            LOGGER.error("person" + userName + "删除失败" , e);
+        }
+    }*/
+
+    /**
+     * 删除一个好友关系
+     * @param username
+     * @param friendUsername
+     */
+    public void deleteRelation(String username, String friendUsername) {
+        try {
+            GraphTraversalSource g = getGraphTraversal();
+            g.V(esDAO.getVertexId(username)).outE().hasLabel("knows")
+                    .where(__.otherV().values("username").is(friendUsername)).drop().iterate();
+            g.tx().commit();
+        } catch (FastNoSuchElementException e) {
+            LOGGER.warn("deleteRelation 失败,username:"+username+",找不到相应的 vertex id。" , e);
+        } catch (Exception e) {
+
         }
     }
 
-    public void dropUsers(String[] userNames) {
-        GraphTraversalSource g = getTitanGraph().traversal();
-        for (String userName : userNames) {
-            g.V().has("username", userName).drop().iterate();
-        }
-        g.tx().commit();
-    }
-
-    public void dropRelation(Relation relation) {
-        GraphTraversalSource g = getGraphTraversal();
-        g.V().has("username", relation.getUserName()).bothE().hasLabel("knows")
-                .where(__.otherV().values("username").is(relation.getFriendName())).drop().iterate();
-        g.tx().commit();
-    }
-
-    public void dropRelations(Relation[] relations) {
-        GraphTraversalSource g = getGraphTraversal();
-        for (Relation relation : relations) {
-            g.V().has("username", relation.getUserName()).bothE().hasLabel("knows")
-                    .where(__.otherV().values("username").is(relation.getFriendName())).drop().iterate();
-        }
-        g.tx().commit();
-    }
-
-    public List<String> getOneDegreeFriends(String username, List<String> friends) {
-        GraphTraversal oneDegreeFriends = getGraphTraversal().V().
-                has("username", username).out("knows").
+    private List<String> getOneDegreeFriends(String userVID, String[] friends) {
+        GraphTraversal oneDegreeFriends = getGraphTraversal().V(userVID).out("knows").
                 where(__.values("username").is(P.within(friends))).values("username");
         return oneDegreeFriends.toList();
     }
 
-    public List<String> getOneDegreeFriends(String username) {
-        GraphTraversal oneDegreeFriends = getGraphTraversal().V().
-                has("username", username).out("knows").values("username");
-        return oneDegreeFriends.toList();
-    }
-
-
-    public List<String> getTwoDegreeFriends(String username) {
-        GraphTraversal twoDegreeFriends = getGraphTraversal().V().
-                has("username", username).aggregate("u").out("knows").
-                aggregate("f1").out("knows").where(P.without("f1")).where(P.without("u")).dedup().values("username");
-        return twoDegreeFriends.toList();
-    }
-
-    public List<String> getTwoDegreeFriends(String username, List<String> friends) {
-        GraphTraversal twoDegreeFriends = getGraphTraversal().V().
-                has("username", username).aggregate("u").out("knows").
+    private List<String> getTwoDegreeFriends(String userVID, String[] friends) {
+        GraphTraversal twoDegreeFriends = getGraphTraversal().V(userVID).aggregate("u").out("knows").
                 aggregate("f1").out("knows").
                 where(__.values("username").is(P.within(friends))).
                 where(P.without("f1")).
@@ -247,9 +165,17 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO {
         return twoDegreeFriends.toList();
     }
 
-    public Map<String, Integer> getOneAndTwoDegreeFriends(String username, List<String> friends) {
-        List<String> oneDegreeFriends = getOneDegreeFriends(username, friends);
-        List<String> twoDegreeFriends = getTwoDegreeFriends(username, friends);
+    /**
+     * 获取二度好友
+     * //TODO 如果查询效率低，尝试将friends的VID也查出来
+     * @param username
+     * @param friends
+     * @return
+     */
+    public Map<String, Integer> getFriendsLevel(String username, String[] friends) {
+        String userVID = esDAO.getVertexId(username);
+        List<String> oneDegreeFriends = getOneDegreeFriends(userVID, friends);
+        List<String> twoDegreeFriends = getTwoDegreeFriends(userVID, friends);
         Map<String, Integer> result = new HashMap<String, Integer>();
 
         for (String friend : twoDegreeFriends) {
@@ -261,17 +187,18 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO {
         return result;
     }
 
+    /**
+     * 获取共同好友数
+     * @param username
+     * @param friends
+     * @return
+     */
     public Map<String, Integer> getComFriendsNum(String username, String[] friends) {
-        long beginTime = System.currentTimeMillis();
-        String vertexId = esDAO.getVertexId(username);
-        System.out.println("ES 查询vid耗时:" + (System.currentTimeMillis() - beginTime));
-        List usernameList = getGraphTraversal().V(vertexId).
+        List usernameList = getGraphTraversal().V(esDAO.getVertexId(username)).
                 out("knows").out("knows").
                 where(__.values("username").is(P.within(friends))).
                 values("username").toList();
-        Map<String, Integer> result = count(usernameList);
-        System.out.println("getComFriendsNum总耗时:"+(System.currentTimeMillis()-beginTime));
-        return result;
+        return count(usernameList);
     }
 
     private Map<String, Integer> count(List<Object> usernameList) {
@@ -288,75 +215,4 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO {
         return hashMap;
     }
 
-    public void testAddGraph() {
-        String[] usernames = new String[7];
-        usernames[0] = "001";
-        usernames[1] = "002";
-        usernames[2] = "003";
-        usernames[3] = "004";
-        usernames[4] = "005";
-        usernames[5] = "006";
-        usernames[6] = "007";
-        addUsers(usernames);
-
-        Relation[] rels = new Relation[18];
-        rels[0] = new Relation("001", "002");
-        rels[1] = new Relation("002", "001");
-        rels[2] = new Relation("001", "003");
-        rels[3] = new Relation("003", "001");
-        rels[4] = new Relation("001", "004");
-        rels[5] = new Relation("004", "001");
-        rels[6] = new Relation("001", "007");
-        rels[7] = new Relation("007", "001");
-        rels[8] = new Relation("002", "003");
-        rels[9] = new Relation("002", "004");
-        rels[10] = new Relation("003", "002");
-        rels[11] = new Relation("004", "002");
-        rels[12] = new Relation("003", "007");
-        rels[13] = new Relation("007", "003");
-        rels[14] = new Relation("003", "005");
-        rels[15] = new Relation("005", "003");
-        rels[16] = new Relation("005", "006");
-        rels[17] = new Relation("006", "005");
-        addRelationsByUsername(rels);
-    }
-
-    public void testUndirected() {
-        String[] usernames = new String[4];
-        usernames[0] = "001";
-        usernames[1] = "002";
-        usernames[2] = "003";
-        usernames[3] = "004";
-
-
-        addUsers(usernames);
-
-        String username = "001";
-        List<String> friends = new ArrayList<String>();
-        friends.add("002");
-        friends.add("003");
-
-        GraphTraversalSource g = getGraphTraversal();
-        Vertex user = g.V().has("username", "001").next();
-
-        List<Vertex> friendsVertex = g.V().where(__.values("username").is(P.within(friends))).toList();
-        //has("username","002").toList();
-
-        for (Vertex friend : friendsVertex) {
-            user.addEdge("knows", friend);
-        }
-
-        //addRelationsByUsername(rels);
-    }
-
-    public static void main(String[] args) {
-
-        TitanDAOImpl dao = new TitanDAOImpl();
-
-        dao.addRelationByVID("20688", "41156784111");
-        //dao.testAddGraph();
-/*        TitanVertex tv = dao.getTitanGraph().addVertex(T.label, "person", "username", System.currentTimeMillis());
-        System.out.println(tv.id());*/
-        dao.closeTitanGraph();
-    }
 }

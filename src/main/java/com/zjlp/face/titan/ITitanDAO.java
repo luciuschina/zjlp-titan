@@ -1,56 +1,55 @@
 package com.zjlp.face.titan;
 
-import com.zjlp.face.bean.Relation;
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
-
 import java.util.List;
 import java.util.Map;
 
 public interface ITitanDAO {
-    String addUser(String userName, Boolean autoCommit);
 
+    /**
+     * 新增一个用户
+     * @param userName
+     * @return
+     */
     String addUser(String userName);
 
-    void addRelationByVID(String userId, String friendId, Boolean autoCommit);
+    /**
+     * 增加多个用户
+     * @param userNames
+     */
+    void addUsers(List<String> userNames);
 
-    void addRelationByVID(String userId, String friendId);
+    /**
+     * 增加一个好友关系
+     * @param username
+     * @param friendUsername
+     * @param autoCommit true表示自动提交事物。false表示手动提交事务，适用于批量提交时。
+     */
+    void addRelation(String username, String friendUsername, Boolean autoCommit);
 
-    void addRelationByVID(String userId, String friendId,GraphTraversalSource g, Boolean autoCommit);
+    /**
+     * 删除一个好友关系
+     * @param username
+     * @param friendUsername
+     */
+    void deleteRelation(String username, String friendUsername);
 
-    void addUsers(String[] userNames);
 
-    void addUsers(String[] userNames, int patchLength);
+    /**
+     * 查询二度好友
+     * @param username
+     * @param friends
+     * @return
+     */
+    Map<String, Integer> getFriendsLevel(String username, String[] friends);
 
-    void addRelation(Relation relation);
-
-    void addRelationsByUsername(Relation[] relations);
-
-    void addRelationsByUsername(Relation[] relations, int patchLength);
-
-    void addRelationsByUsername(String username, List<String> friendsList);
-
-    void dropUser(String userName);
-
-    void dropUsers(String[] userNames);
-
-    void dropRelation(Relation relation);
-
-    void dropRelations(Relation[] relations);
-
-    Map<String, Integer> getOneAndTwoDegreeFriends(String username, List<String> friends);
-
+    /**
+     * 查询共同好友数
+     * @param username
+     * @param friends
+     * @return
+     */
     Map<String, Integer> getComFriendsNum(String username, String[] friends);
 
-    public void closeTitanGraph();
-
- /*
-    List<String> getOneDegreeFriends(String username);
-
-    List<String> getOneDegreeFriends(String username, List<String> friends);
-
-    List<String> getTwoDegreeFriends(String username);
-
-    List<String> getTwoDegreeFriends(String username, List<String> friends);*/
-
+    void closeTitanGraph();
 
 }

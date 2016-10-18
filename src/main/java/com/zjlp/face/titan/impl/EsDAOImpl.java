@@ -45,6 +45,15 @@ public class EsDAOImpl implements IEsDAO {
         bulkRequest.get();
     }
 
+    public void create(UsernameVID item) {
+        try{
+            getEsClient().prepareIndex("titan-es", "rel", item.getUserName())
+                    .setSource(jsonBuilder().startObject().field("vertexId" , item.getVid()).endObject()).get();
+        } catch(Exception e) {
+            LOGGER.error("ES插入索引失败.username:" + item.getUserName() + ",vertexId:" + item.getVid(), e);
+        }
+    }
+
     public String getVertexId(String username) {
         SearchResponse response = getEsClient().prepareSearch("titan-es").setTypes("rel")
                 .setQuery(QueryBuilders.idsQuery().ids(username))
