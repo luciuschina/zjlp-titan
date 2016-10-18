@@ -2,11 +2,9 @@ package com.zjlp.face.spark.base
 
 import java.util
 
-import com.zjlp.face.bean.{UsernameVID, Relation}
-import com.zjlp.face.titan.{EsDAOImpl, TitanInit, TitanDAOImpl, TitanDAO}
+import com.zjlp.face.bean.UsernameVID
+import com.zjlp.face.titan.{EsDAOImpl, TitanInit, TitanDAOImpl}
 import org.apache.spark.Logging
-import scala.collection.JavaConversions._
-
 /**
  * Created by root on 10/12/16.
  */
@@ -47,7 +45,6 @@ class DataMigration extends Logging with scala.Serializable {
     sqlContext.sql("cache table usernameVertexIdMap")
   }
 
-
   def addUsers() = {
     MySQLContext.instance().sql("select username from relation union select loginAccount from relation ")
       .map(r => r(0).toString).distinct().foreachPartition {
@@ -84,26 +81,11 @@ class DataMigration extends Logging with scala.Serializable {
     logInfo(s"addRelations 耗时:${(System.currentTimeMillis() - beginTime) / 1000}s")
   }
 
-  def addRelationsOld() = {
-    MySQLContext.instance().sql("select username,loginAccount from relation ")
-      .map(r => (r(0).toString, r(1).toString)).groupByKey().foreachPartition {
-      relRDD =>
-        val titanDao: TitanDAO = new TitanDAOImpl()
-        relRDD.foreach { a =>
-          logInfo(s"add relations for user:${a._1}")
-          titanDao.addRelationsByUsername(a._1, a._2.toList);
-        }
-        titanDao.closeTitanGraph();
-    }
-  }
-
-
   def clearAndInit(): Unit = {
     val ti: TitanInit = new TitanInit()
     ti.cleanTitanGraph
     ti.createVertexLabel
     ti.createEdgeLabel
-    //ti.createIndex
     ti.closeTitanGraph
   }
 

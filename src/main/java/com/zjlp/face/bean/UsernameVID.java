@@ -2,7 +2,7 @@ package com.zjlp.face.bean;
 
 import java.io.Serializable;
 
-public class UsernameVID implements scala.Serializable {
+public class UsernameVID implements Serializable {
 
     private String userName;
 

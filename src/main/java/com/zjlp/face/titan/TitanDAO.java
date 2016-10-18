@@ -47,7 +47,8 @@ public interface TitanDAO {
 
     Map<String, Integer> getOneAndTwoDegreeFriends(String username, List<String> friends);
 
-    Map<String, Integer> getComFriendsNum(String username, List<String> friends);
+    Map<String, Integer> getComFriendsNum(String username, String[] friends);
+
 
     public void closeTitanGraph();
 }

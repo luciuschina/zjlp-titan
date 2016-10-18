@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 public class TitanDAOImpl extends TitanCon implements TitanDAO {
+    private static EsDAOImpl esDAO = new EsDAOImpl();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TitanDAOImpl.class);
 
@@ -260,12 +261,17 @@ public class TitanDAOImpl extends TitanCon implements TitanDAO {
         return result;
     }
 
-    public Map<String, Integer> getComFriendsNum(String username, List<String> friends) {
-        List usernameList = getGraphTraversal().V().has("username", username).
+    public Map<String, Integer> getComFriendsNum(String username, String[] friends) {
+        long beginTime = System.currentTimeMillis();
+        String vertexId = esDAO.getVertexId(username);
+        System.out.println("ES 查询vid耗时:" + (System.currentTimeMillis() - beginTime));
+        List usernameList = getGraphTraversal().V(vertexId).
                 out("knows").out("knows").
                 where(__.values("username").is(P.within(friends))).
                 values("username").toList();
-        return count(usernameList);
+        Map<String, Integer> result = count(usernameList);
+        System.out.println("getComFriendsNum总耗时:"+(System.currentTimeMillis()-beginTime));
+        return result;
     }
 
     private Map<String, Integer> count(List<Object> usernameList) {
