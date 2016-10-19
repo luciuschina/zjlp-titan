@@ -73,7 +73,6 @@ public class TitanInit extends TitanCon {
     }
 
     public void usernameUnique() {
-        System.out.println("开始usernameUnique");
         TitanGraph graph = getTitanGraph();
         graph.tx().rollback();  //Never create new indexes while a transaction is active
         TitanManagement mgmt = graph.openManagement();
@@ -84,20 +83,20 @@ public class TitanInit extends TitanCon {
         try {
             ManagementSystem.awaitGraphIndexStatus(graph, "usernameUnique").call();
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            LOGGER.error("InterruptedException",e);
         }
         //Reindex the existing data
         mgmt = graph.openManagement();
         try {
             mgmt.updateIndex(mgmt.getGraphIndex("usernameUnique"), SchemaAction.REINDEX).get();
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            LOGGER.error("InterruptedException" , e);
         } catch (ExecutionException e) {
-            e.printStackTrace();
+            LOGGER.error("ExecutionException" , e);
         }
         mgmt.commit();
-
     }
+
     public void run(){
         cleanTitanGraph();
         createVertexLabel();

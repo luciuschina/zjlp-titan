@@ -22,7 +22,6 @@
     </properties>
 
     <profiles>
-
         <profile>
             <id>test-rel</id>
             <properties>
@@ -88,7 +87,7 @@
         <dependency>
             <groupId>com.thinkaurelius.titan</groupId>
             <artifactId>titan-core</artifactId>
-            <version>1.0.0</version>
+            <version>${titan.version}</version>
         </dependency>
         <dependency>
             <groupId>com.thinkaurelius.titan</groupId>

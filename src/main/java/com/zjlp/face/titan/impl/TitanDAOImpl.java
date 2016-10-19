@@ -24,7 +24,7 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO {
     private static IEsDAO esDAO = new EsDAOImpl();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TitanDAOImpl.class);
-    
+
 
     /**
      * 新增一个用户
