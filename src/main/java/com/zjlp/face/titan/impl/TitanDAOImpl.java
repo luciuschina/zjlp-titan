@@ -24,24 +24,7 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO {
     private static IEsDAO esDAO = new EsDAOImpl();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TitanDAOImpl.class);
-
-    /**
-     * 给Spark批量处理用
-     *
-     * @param userName
-     * @return
-     */
-    public String addUserForSpark(String userName) {
-        String vid = null;
-        try {
-            vid = addUserGremlin(userName);
-            LOGGER.debug("插入新用户:" + userName);
-        } catch (Exception e) {
-            LOGGER.error("用户'" + userName + "'已经存在,插入失败" , e);
-            getTitanGraph().tx().rollback();
-        }
-        return vid;
-    }
+    
 
     /**
      * 新增一个用户
@@ -101,9 +84,10 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO {
 
     /**
      * 增加一个好友关系
+     *
      * @param username
      * @param friendUsername
-     * @param autoCommit true表示自动提交事物。false表示手动提交事务，适用于批量提交时。
+     * @param autoCommit     true表示自动提交事物。false表示手动提交事务，适用于批量提交时。
      */
     public void addRelation(String username, String friendUsername, Boolean autoCommit) {
         GraphTraversalSource g = getGraphTraversal();
@@ -111,7 +95,7 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO {
             g.V(esDAO.getVertexId(username)).next().addEdge("knows" , g.V(esDAO.getVertexId(friendUsername)).next());
             if (autoCommit) g.tx().commit();
         } catch (FastNoSuchElementException e) {
-            LOGGER.warn("addRelation 失败,username:"+username+" or friendUsername:"+friendUsername+"找不到相应的 vertex id。", e);
+            LOGGER.warn("addRelation 失败,username:" + username + " or friendUsername:" + friendUsername + "找不到相应的 vertex id。" , e);
         } catch (SchemaViolationException e) {
             LOGGER.warn("已经存在这条边:" + username + " -knows-> " + friendUsername, e);
         } catch (Exception e) {
@@ -133,6 +117,7 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO {
 
     /**
      * 删除一个好友关系
+     *
      * @param username
      * @param friendUsername
      */
@@ -143,7 +128,7 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO {
                     .where(__.otherV().values("username").is(friendUsername)).drop().iterate();
             g.tx().commit();
         } catch (FastNoSuchElementException e) {
-            LOGGER.warn("deleteRelation 失败,username:"+username+",找不到相应的 vertex id。" , e);
+            LOGGER.warn("deleteRelation 失败,username:" + username + ",找不到相应的 vertex id。" , e);
         } catch (Exception e) {
 
         }
@@ -168,6 +153,7 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO {
     /**
      * 获取二度好友
      * //TODO 如果查询效率低，尝试将friends的VID也查出来
+     *
      * @param username
      * @param friends
      * @return
@@ -189,6 +175,7 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO {
 
     /**
      * 获取共同好友数
+     *
      * @param username
      * @param friends
      * @return

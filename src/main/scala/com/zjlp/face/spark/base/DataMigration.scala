@@ -49,18 +49,11 @@ class DataMigration extends Logging with scala.Serializable {
       .map(r => r(0).toString).distinct().foreachPartition {
       usernameRDD =>
         val titanDao = new TitanDAOImpl()
-        val esDao = new EsDAOImpl()
-        val list: util.List[UsernameVID] = new util.ArrayList[UsernameVID]()
-        var count = 0
         usernameRDD.foreach {
           username =>
-            list.add(new UsernameVID(username, titanDao.addUserForSpark(username)))
-            count = count + 1
-            if (count % 1000 == 0) titanDao.getGraphTraversal.tx().commit()
+            titanDao.addUser(username)
         }
-        titanDao.getGraphTraversal.tx().commit()
         titanDao.closeTitanGraph()
-        esDao.multiCreate(list)
     }
   }
 
@@ -84,13 +77,13 @@ class DataMigration extends Logging with scala.Serializable {
     logInfo(s"addRelations 耗时:${(System.currentTimeMillis() - beginTime) / 1000}s")
   }
 
-  def clearAndInit(): Unit = {
-    val ti: TitanInit = new TitanInit()
-    ti.cleanTitanGraph()
-    ti.createVertexLabel()
-    ti.createEdgeLabel()
-    ti.createIndex()
-    ti.closeTitanGraph()
-  }
+  /*  def clearAndInit(): Unit = {
+      val ti: TitanInit = new TitanInit()
+      ti.cleanTitanGraph()
+      ti.createVertexLabel()
+      ti.createEdgeLabel()
+      ti.createIndex()
+      ti.closeTitanGraph()
+    }*/
 
 }
