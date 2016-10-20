@@ -6,16 +6,19 @@ import com.zjlp.face.spark.base.Props;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 
 public class TitanCon {
-    private TitanGraph graph;
+    public TitanGraph graph;
 
     public void closeTitanGraph() {
-        if (graph != null && graph.isOpen())
+        if (graph != null) {
             graph.close();
+        }
+
     }
 
     public TitanGraph getTitanGraph() {
-        if (graph == null || graph.isClosed())
+        if(graph == null || graph.isClosed()) {
             graph = TitanFactory.open(Props.get("titan-cassandra"));
+        }
         return graph;
     }
 

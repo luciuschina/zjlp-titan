@@ -3,6 +3,7 @@ package com.zjlp.face.titan;
 import com.zjlp.face.bean.UsernameVID;
 import org.elasticsearch.client.Client;
 
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -21,7 +22,7 @@ public interface IEsDAO {
      * 插入一个用户信息
      * @param item
      */
-    void create(UsernameVID item);
+    void create(UsernameVID item) throws IOException;
 
 
     /**

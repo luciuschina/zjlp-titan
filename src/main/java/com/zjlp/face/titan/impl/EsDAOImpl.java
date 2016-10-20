@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.List;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
@@ -46,13 +47,9 @@ public class EsDAOImpl implements IEsDAO {
         bulkRequest.get();
     }
 
-    public void create(UsernameVID item) {
-        try{
-            getEsClient().prepareIndex(titanEsIndex, "rel", item.getUserName())
-                    .setSource(jsonBuilder().startObject().field("vertexId" , item.getVid()).endObject()).get();
-        } catch(Exception e) {
-            LOGGER.error("ES插入索引失败.username:" + item.getUserName() + ",vertexId:" + item.getVid(), e);
-        }
+    public void create(UsernameVID item) throws IOException {
+        getEsClient().prepareIndex(titanEsIndex, "rel", item.getUserName())
+                .setSource(jsonBuilder().startObject().field("vertexId" , item.getVid()).endObject()).get();
     }
 
     public String getVertexId(String username) {

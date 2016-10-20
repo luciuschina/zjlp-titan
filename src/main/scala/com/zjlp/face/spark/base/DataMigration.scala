@@ -1,7 +1,10 @@
 package com.zjlp.face.spark.base
 
+import com.zjlp.face.spark.utils.SparkUtils
 import com.zjlp.face.titan.impl.TitanDAOImpl
 import org.apache.spark.Logging
+import scala.collection.JavaConversions._
+
 
 class DataMigration extends Logging with scala.Serializable {
   def getRelationFromMySqlDB = {
@@ -31,6 +34,7 @@ class DataMigration extends Logging with scala.Serializable {
   private def getUsernameVertexIdFromES = {
     logInfo("从ES加载username-vertexId索引数据")
     val sqlContext = MySQLContext.instance()
+    SparkUtils.dropTempTables(sqlContext, "relInES", "usernameVertexIdMap")
     sqlContext.sql(
       s"CREATE TEMPORARY TABLE relInES " +
         s"USING org.elasticsearch.spark.sql " +
@@ -73,4 +77,45 @@ class DataMigration extends Logging with scala.Serializable {
     logInfo(s"addRelations 耗时:${(System.currentTimeMillis() - beginTime) / 1000}s")
   }
 
+  /**
+   * 关系同步，即对比titan与mysql中的数据是否一致，如果不一致就增量更新为与mysql中的一致
+   * 步骤：
+   * 1、从ES中的titan-es索引中读取username和VID的对应关系
+   * 2、分片使用g.V(vid).out('knows').id 得到好友关系，可以得到 userVID - friendVID的对应关系
+   * 3、结合步骤1和步骤2 从Titan中得到现有 username - friendUsername 的对应关系
+   * 4、从mysql中得到现有 username - friendUsername 的对应关系
+   * 5、(步骤3的好友关系) substract (步骤4的好友关系) = 需要从Titan中删除的好友关系
+   * 6、(步骤4的好友关系) substract (步骤3的好友关系) = 需要往Titan中添加的好友关系
+   */
+  def relationsSyn(): Unit = {
+    val sqlContext = MySQLContext.instance()
+    getUsernameVertexIdFromES //1
+    getVidRelationsFromTitan //2
+
+    val relInTitan = sqlContext.sql("select usernameTitan, usernameInES as friendUsernameTitan from (select usernameInES as usernameTitan ,friendVidTitan from VidRelTitan inner join usernameVertexIdMap on vertexId = userVidTitan) a inner join usernameVertexIdMap on vertexId = friendVidTitan ")
+      .map(r => (r(0).toString, r(1).toString)).persist() //3
+
+    getRelationFromMySqlDB //4
+    val relInMysql = sqlContext.sql("select username,loginAccount from relation").map(r => (r(0).toString, r(1).toString)).persist()
+
+    val titan = new TitanDAOImpl()
+    relInTitan.subtract(relInMysql).collect().foreach(rel => titan.deleteRelation(rel._1, rel._2)) //5
+    relInMysql.subtract(relInTitan).collect().foreach(rel => titan.addRelation(rel._1, rel._2)) //6
+    relInTitan.unpersist()
+    relInMysql.unpersist()
+    SparkUtils.dropTempTable(sqlContext,"VidRelTitan")
+  }
+
+  private def getVidRelationsFromTitan = {
+    val sqlContext = MySQLContext.instance()
+    import sqlContext.implicits._
+    sqlContext.sql("select vertexId from usernameVertexIdMap ")
+      .map(r => r(0).toString).mapPartitions {
+      vidRDD =>
+        val titan = new TitanDAOImpl()
+        vidRDD.flatMap {
+          vid => titan.getAllFriendVIDs(vid).map(friendId => (vid, friendId.toString))
+        }
+    }.toDF("userVidTitan", "friendVidTitan").registerTempTable("VidRelTitan")
+  }
 }
