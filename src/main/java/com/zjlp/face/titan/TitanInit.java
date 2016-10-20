@@ -12,24 +12,12 @@ import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.temporal.ChronoUnit;
 import java.util.concurrent.ExecutionException;
 
 public class TitanInit extends TitanCon {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TitanInit.class);
-
-    /**
-     * 为username这个顶点的属性建立索引. 为了保证username的唯一性.
-     * 如果不建立索引，也能保证username属性的唯一性，那么可以不建立索引。
-     */
-    public void createIndex() {
-        TitanManagement mgmt = getTitanGraph().openManagement();
-        mgmt.buildIndex("usernameIndex" , Vertex.class).
-                addKey(mgmt.getPropertyKey("username")).
-                unique().buildCompositeIndex();
-        mgmt.commit();
-        LOGGER.info("为username创建索引");
-    }
 
     /**
      * 清空图,删除所有的顶点、边和索引
@@ -68,10 +56,6 @@ public class TitanInit extends TitanCon {
         //TODO 后面实现
     }
 
-    public static void main(String[] args) {
-        new TitanInit().run();
-    }
-
     public void usernameUnique() {
         TitanGraph graph = getTitanGraph();
         graph.tx().rollback();  //Never create new indexes while a transaction is active
@@ -81,7 +65,9 @@ public class TitanInit extends TitanCon {
         mgmt.commit();
         //Wait for the index to become available
         try {
-            ManagementSystem.awaitGraphIndexStatus(graph, "usernameUnique").call();
+            ManagementSystem.awaitGraphIndexStatus(graph, "usernameUnique")
+                    .timeout(60, ChronoUnit.MINUTES) // set timeout to 60 min
+                    .call();
         } catch (InterruptedException e) {
             LOGGER.error("InterruptedException",e);
         }
@@ -102,5 +88,9 @@ public class TitanInit extends TitanCon {
         createVertexLabel();
         createEdgeLabel();
         closeTitanGraph();
+    }
+
+    public static void main(String[] args) {
+        new TitanInit().run();
     }
 }

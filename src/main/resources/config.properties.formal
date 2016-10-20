@@ -26,4 +26,6 @@ add-user=true
 add-relation=true
 
 titan-cassandra=/opt/sparkApp/zjlp-titan/titan-cassandra.properties
+titan-es-index=titan-es
+
 spark.jars=/opt/sparkApp/mysql-connector-java-5.1.22.jar,/opt/sparkApp/zjlp-titan/zjlp-titan-1.0.jar

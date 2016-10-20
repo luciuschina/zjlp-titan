@@ -1,10 +1,6 @@
 package com.zjlp.face.spark.base
 
-import java.util
-
-import com.zjlp.face.bean.UsernameVID
-import com.zjlp.face.titan.impl.{TitanDAOImpl, EsDAOImpl}
-import com.zjlp.face.titan.TitanInit
+import com.zjlp.face.titan.impl.TitanDAOImpl
 import org.apache.spark.Logging
 
 class DataMigration extends Logging with scala.Serializable {
@@ -38,7 +34,7 @@ class DataMigration extends Logging with scala.Serializable {
     sqlContext.sql(
       s"CREATE TEMPORARY TABLE relInES " +
         s"USING org.elasticsearch.spark.sql " +
-        s"OPTIONS (resource 'titan-es/rel', es.read.metadata 'true')")
+        s"OPTIONS (resource '${Props.get("titan-es-index")}/rel', es.read.metadata 'true')")
     sqlContext.sql("SELECT _metadata._id as usernameInES, vertexId FROM relInES")
       .registerTempTable("usernameVertexIdMap")
     sqlContext.sql("cache table usernameVertexIdMap")
@@ -76,14 +72,5 @@ class DataMigration extends Logging with scala.Serializable {
     }
     logInfo(s"addRelations 耗时:${(System.currentTimeMillis() - beginTime) / 1000}s")
   }
-
-  /*  def clearAndInit(): Unit = {
-      val ti: TitanInit = new TitanInit()
-      ti.cleanTitanGraph()
-      ti.createVertexLabel()
-      ti.createEdgeLabel()
-      ti.createIndex()
-      ti.closeTitanGraph()
-    }*/
 
 }

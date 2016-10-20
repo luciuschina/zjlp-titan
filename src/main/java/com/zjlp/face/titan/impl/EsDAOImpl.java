@@ -20,6 +20,7 @@ import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 public class EsDAOImpl implements IEsDAO {
     private static final Logger LOGGER = LoggerFactory.getLogger(EsDAOImpl.class);
     private Client esClient = null;
+    private String titanEsIndex = Props.get("titan-es-index");
 
     public Client getEsClient() {
         if (esClient == null) {
@@ -33,7 +34,7 @@ public class EsDAOImpl implements IEsDAO {
         BulkRequestBuilder bulkRequest = client.prepareBulk();
         for (UsernameVID item:items) {
             try {
-                bulkRequest.add(client.prepareIndex("titan-es", "rel", item.getUserName())
+                bulkRequest.add(client.prepareIndex(titanEsIndex, "rel", item.getUserName())
                         .setSource(jsonBuilder()
                                 .startObject()
                                 .field("vertexId", item.getVid())
@@ -47,7 +48,7 @@ public class EsDAOImpl implements IEsDAO {
 
     public void create(UsernameVID item) {
         try{
-            getEsClient().prepareIndex("titan-es", "rel", item.getUserName())
+            getEsClient().prepareIndex(titanEsIndex, "rel", item.getUserName())
                     .setSource(jsonBuilder().startObject().field("vertexId" , item.getVid()).endObject()).get();
         } catch(Exception e) {
             LOGGER.error("ES插入索引失败.username:" + item.getUserName() + ",vertexId:" + item.getVid(), e);
@@ -55,7 +56,7 @@ public class EsDAOImpl implements IEsDAO {
     }
 
     public String getVertexId(String username) {
-        SearchResponse response = getEsClient().prepareSearch("titan-es").setTypes("rel")
+        SearchResponse response = getEsClient().prepareSearch(titanEsIndex).setTypes("rel")
                 .setQuery(QueryBuilders.idsQuery().ids(username))
                 .setExplain(false).execute().actionGet();
 
