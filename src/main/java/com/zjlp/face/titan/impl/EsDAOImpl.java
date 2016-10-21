@@ -5,6 +5,9 @@ import com.zjlp.face.spark.base.Props;
 import com.zjlp.face.spark.utils.EsUtils;
 import com.zjlp.face.titan.IEsDAO;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.get.MultiGetItemResponse;
+import org.elasticsearch.action.get.MultiGetResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -14,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
@@ -56,7 +60,6 @@ public class EsDAOImpl implements IEsDAO {
         SearchResponse response = getEsClient().prepareSearch(titanEsIndex).setTypes("rel")
                 .setQuery(QueryBuilders.idsQuery().ids(username))
                 .setExplain(false).execute().actionGet();
-
         SearchHit[] results = response.getHits().getHits();
         if (results != null && results.length > 0)
             return results[0].getSource().get("vertexId").toString();
@@ -64,6 +67,25 @@ public class EsDAOImpl implements IEsDAO {
             LOGGER.warn("return null!. ES的titan-es这个索引中没有这个id:"+username);
             return null;
         }
+    }
+
+    public String[] getVertexIds(String[] usernames) {
+        MultiGetResponse multiGetItemResponses = getEsClient().prepareMultiGet()
+                .add(titanEsIndex, "rel", usernames)
+                .get();
+        List<String> vids = new ArrayList<String>();
+        for (MultiGetItemResponse itemResponse : multiGetItemResponses) {
+            GetResponse response = itemResponse.getResponse();
+            if (response.isExists()) {
+                vids.add(response.getSourceAsMap().get("vertexId").toString());
+            }
+        }
+        int listSize = vids.size();
+        String[] result = new String[listSize];
+        for(int i=0; i<listSize;i++){
+            result[i] = vids.get(i);
+        }
+        return result;
     }
 
     public void closeClient() {

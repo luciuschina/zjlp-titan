@@ -26,13 +26,9 @@ public interface ITitanDAO {
      */
     Map<String, Integer> getFriendsLevel(String username, String[] friends);
 
-    /**
-     * 查询共同好友数
-     * @param username
-     * @param friends
-     * @return
-     */
-    Map<String, Integer> getComFriendsNum(String username, String[] friends);
+
+    Map<Object, Long> getComFriendsNum(String username, String[] friends);
+
 
     void closeTitanGraph();
 

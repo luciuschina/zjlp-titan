@@ -134,17 +134,17 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO, Serializable {
         return oneDegreeFriends.toSet();
     }
 
-    private List<String> getOneDegreeFriends(String userVID, String[] friends) {
+    private List<String> getOneDegreeFriends(String userVID, String[] friendsVID) {
         GraphTraversal oneDegreeFriends = getGraphTraversal().V(userVID).out("knows").
-                where(__.values("username").is(P.within(friends))).values("username");
+                where(__.hasId(friendsVID)).values("username");
         return oneDegreeFriends.toList();
     }
 
 
-    private List<String> getTwoDegreeFriends(String userVID, String[] friends) {
+    private List<String> getTwoDegreeFriends(String userVID, String[] friendsVID) {
         GraphTraversal twoDegreeFriends = getGraphTraversal().V(userVID).aggregate("u").out("knows").
                 aggregate("f1").out("knows").
-                where(__.values("username").is(P.within(friends))).
+                where(__.hasId(friendsVID)).
                 where(P.without("f1")).
                 where(P.without("u")).
                 dedup().values("username");
@@ -162,9 +162,11 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO, Serializable {
     public Map<String, Integer> getFriendsLevel(String username, String[] friends) {
         Map<String, Integer> result = new HashMap<String, Integer>();
         String userVID = esDAO.getVertexId(username);
+        String[] friendsVID = esDAO.getVertexIds(friends);
+        System.out.println(friendsVID[0] + " "+friendsVID[1]);
         if (userVID != null) {
-            List<String> oneDegreeFriends = getOneDegreeFriends(userVID, friends);
-            List<String> twoDegreeFriends = getTwoDegreeFriends(userVID, friends);
+            List<String> oneDegreeFriends = getOneDegreeFriends(userVID, friendsVID);
+            List<String> twoDegreeFriends = getTwoDegreeFriends(userVID, friendsVID);
             for (String friend : twoDegreeFriends) {
                 result.put(friend, 2);
             }
@@ -182,51 +184,25 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO, Serializable {
      * @param friends
      * @return
      */
-    public Map<String, Integer> getComFriendsNum(String username, String[] friends) {
+    public Map<Object, Long> getComFriendsNum(String username, String[] friends) {
         String userVID = esDAO.getVertexId(username);
         if (userVID == null) {
-            return new HashMap<String, Integer>();
+            LOGGER.info("不存在username:"+username+"顶点");
+            return new HashMap<Object, Long>();
         } else {
-            List usernameList = getGraphTraversal().V(userVID).
-                    out("knows").out("knows").
-                    where(__.values("username").is(P.within(friends))).
-                    values("username").toList();
-            return count(usernameList);
+            return getGraphTraversal().V(userVID)
+                    .aggregate("u")
+                    .out("knows").out("knows")
+                    .where(__.hasId(esDAO.getVertexIds(friends)))
+                    .where(P.without("u"))
+                    .values("username").groupCount().next();
         }
-
-    }
-
-    private Map<String, Integer> count(List<Object> usernameList) {
-        Map<String, Integer> hashMap = new HashMap<String, Integer>();
-        Integer c;
-        for (Object name : usernameList) {
-            c = hashMap.get(name.toString());
-            if (c == null) {
-                hashMap.put(name.toString(), 1);
-            } else {
-                hashMap.put(name.toString(), c + 1);
-            }
-        }
-        return hashMap;
     }
 
     public static void main(String[] args) {
         ITitanDAO d = new TitanDAOImpl();
-        d.addRelation("lx11", "slh11");
-        d.closeTitanGraph();
+        System.out.println(d.getComFriendsNum("15658866602", new String[]{"12300007777", "15658866602","1q21"}));
+        System.exit(0);
     }
-
-    /*
-    public void dropUser(String userName) {
-        GraphTraversalSource g = getTitanGraph().traversal();
-        try {
-            g.V().has("username" , userName).drop().iterate();
-            g.tx().commit();
-            // ES中删除索引
-            LOGGER.info("删除用户：" + userName);
-        } catch (Exception e) {
-            LOGGER.error("person" + userName + "删除失败" , e);
-        }
-    }*/
 
 }
