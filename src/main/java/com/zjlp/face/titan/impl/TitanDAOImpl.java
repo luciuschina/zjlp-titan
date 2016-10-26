@@ -28,6 +28,16 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO, Serializable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TitanDAOImpl.class);
 
+    public void cacheFor(String username) {
+        if (esDAO.ifCache(username)) {
+            try {
+                getComFriendsNum(username, new String[]{username});
+            } catch (Exception e) {
+                LOGGER.error("cacheFor exception", e);
+            }
+        }
+    }
+
     /**
      * 新增一个用户
      *
@@ -97,7 +107,7 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO, Serializable {
             if (!getGraphTraversal().V().has("username", friendUsername).hasNext()) {
                 friendVID = addUser(username);
             }
-            try{
+            try {
                 addRelationByVID(userVID, friendVID, autoCommit);
             } catch (Exception e2) {
 
@@ -185,7 +195,7 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO, Serializable {
     public Map<Object, Long> getComFriendsNum(String username, String[] friends) {
         String userVID = esDAO.getVertexId(username);
         if (userVID == null) {
-            LOGGER.info("不存在username:"+username+"顶点");
+            LOGGER.info("不存在username:" + username + "顶点");
             return new HashMap<Object, Long>();
         } else {
             return getGraphTraversal().V(userVID)
@@ -197,10 +207,10 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO, Serializable {
         }
     }
 
+
     public static void main(String[] args) {
         ITitanDAO d = new TitanDAOImpl();
-        d.addRelation("林心","张三");
-
+        d.cacheFor("13100002001");
         System.exit(0);
     }
 

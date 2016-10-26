@@ -35,5 +35,7 @@ public interface IEsDAO {
 
     String[] getVertexIds(String[] usernames);
 
+    boolean ifCache(String username);
+
     void closeClient();
 }

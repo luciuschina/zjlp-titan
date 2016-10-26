@@ -17,7 +17,7 @@ object Main extends Logging {
     val cleanTitanInstances = Props.get("clean-titan-instances").toBoolean
 
     val mysql = new MySQL()
-    mysql.getRelationFromMySqlDB
+    mysql.cacheRelationFromMysql
 
     if (addUser || addRelation) {
       if (addUser) {

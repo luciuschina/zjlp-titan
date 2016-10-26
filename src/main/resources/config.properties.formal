@@ -21,12 +21,14 @@ pushdown=true
 strict=true
 double.filtering=false
 
-titan-cassandra=/opt/tomcat-7.0.69/webapps/zjlp-titan-1.0/WEB-INF/classes
+titan-cassandra=/opt/tomcat-7.0.69/webapps/zjlp-titan-1.0/WEB-INF/classes/titan-cassandra.properties
+
 titan-es-index=titan-es
 
 add-user=false
 add-relation=false
 relation-syn=true
 clean-titan-instances=true
+friend-num-of-hot-user=1000
 
 spark.jars=/opt/sparkApp/mysql-connector-java-5.1.22.jar,/opt/sparkApp/zjlp-titan/zjlp-titan-1.0.jar

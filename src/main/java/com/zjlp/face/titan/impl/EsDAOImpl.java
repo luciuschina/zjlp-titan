@@ -69,6 +69,18 @@ public class EsDAOImpl implements IEsDAO {
         }
     }
 
+    public boolean ifCache(String username) {
+        SearchResponse response = getEsClient().prepareSearch(titanEsIndex).setTypes("ifcache")
+                .setQuery(QueryBuilders.idsQuery().ids(username))
+                .setExplain(false).execute().actionGet();
+        SearchHit[] results = response.getHits().getHits();
+        if (results != null && results.length > 0)
+            return Boolean.valueOf(results[0].getSource().get("isCached").toString());
+        else {
+            return false;
+        }
+    }
+
     public String[] getVertexIds(String[] usernames) {
         MultiGetResponse multiGetItemResponses = getEsClient().prepareMultiGet()
                 .add(titanEsIndex, "rel", usernames)

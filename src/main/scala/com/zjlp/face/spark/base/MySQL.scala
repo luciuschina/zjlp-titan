@@ -6,7 +6,7 @@ import com.zjlp.face.spark.utils.SparkUtils
  * Created by root on 10/24/16.
  */
 class MySQL {
-  def getRelationFromMySqlDB = {
+  def cacheRelationFromMysql = {
     val sqlContext = MySQLContext.instance()
     SparkUtils.dropTempTables(sqlContext, "relInES", "relation")
     sqlContext.read.format("jdbc").options(Map(

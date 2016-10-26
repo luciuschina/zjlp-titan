@@ -102,7 +102,9 @@ class DataMigration extends Logging with scala.Serializable {
         }
     }.toDF("userVidTitan", "friendVidTitan").registerTempTable("VidRelTitan")
   }
+}
 
+object DataMigration extends Logging with scala.Serializable {
   def main(args: Array[String]) {
     val beginTime = System.currentTimeMillis()
     val dataMigration = new DataMigration()
@@ -113,7 +115,7 @@ class DataMigration extends Logging with scala.Serializable {
     val cleanTitanInstances = Props.get("clean-titan-instances").toBoolean
 
     val mysql = new MySQL()
-    mysql.getRelationFromMySqlDB
+    mysql.cacheRelationFromMysql
 
     if (addUser || addRelation) {
       if (addUser) {
