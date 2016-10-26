@@ -1,35 +1,13 @@
 package com.zjlp.face.spark.base
 
 import com.zjlp.face.spark.utils.SparkUtils
+import com.zjlp.face.titan.TitanInit
 import com.zjlp.face.titan.impl.TitanDAOImpl
 import org.apache.spark.Logging
 import scala.collection.JavaConversions._
 
 
 class DataMigration extends Logging with scala.Serializable {
-  def getRelationFromMySqlDB = {
-    MySQLContext.instance().read.format("jdbc").options(Map(
-      "url" -> Props.get("jdbc_conn"),
-      "dbtable" -> s"(select rosterId,username,loginAccount from of_roster where username != loginAccount) tb",
-      "driver" -> Props.get("jdbc_driver"),
-      "partitionColumn" -> "rosterId",
-      "lowerBound" -> "1",
-      "upperBound" -> getRosterUpperBound(),
-      "numPartitions" -> Props.get("mysql_table_partition")
-    )).load()
-      .registerTempTable("relation")
-    MySQLContext.instance().sql(s"cache table relation")
-  }
-
-  private def getRosterUpperBound(): String = {
-
-    return MySQLContext.instance().read.format("jdbc").options(Map(
-      "url" -> Props.get("jdbc_conn"),
-      "dbtable" -> s"(select max(rosterId) from of_roster ) tb",
-      "driver" -> Props.get("jdbc_driver")
-    )).load().map(a => a(0).toString.toLong).max().toString
-
-  }
 
   private def getUsernameVertexIdFromES = {
     logInfo("从ES加载username-vertexId索引数据")
@@ -49,7 +27,7 @@ class DataMigration extends Logging with scala.Serializable {
       .map(r => r(0).toString).distinct().foreachPartition {
       usernameRDD =>
         val titanDao = new TitanDAOImpl()
-        usernameRDD.foreach(titanDao.addUser(_))
+        usernameRDD.foreach(username => titanDao.addUser(username))
         titanDao.closeTitanGraph()
     }
   }
@@ -95,9 +73,8 @@ class DataMigration extends Logging with scala.Serializable {
       "on vertexId = userVidTitan) a inner join usernameVertexIdMap on vertexId = friendVidTitan ")
       .map(r => (r(0).toString, r(1).toString)).persist() //3
 
-    getRelationFromMySqlDB //4
     val relInMysql = sqlContext.sql("select username,loginAccount from relation")
-        .map(r => (r(0).toString, r(1).toString)).persist()
+        .map(r => (r(0).toString, r(1).toString)).persist()  //4
 
     val titan = new TitanDAOImpl()
 
@@ -124,5 +101,43 @@ class DataMigration extends Logging with scala.Serializable {
           vid => titan.getAllFriendVIDs(vid).map(friendId => (vid, friendId.toString))
         }
     }.toDF("userVidTitan", "friendVidTitan").registerTempTable("VidRelTitan")
+  }
+
+  def main(args: Array[String]) {
+    val beginTime = System.currentTimeMillis()
+    val dataMigration = new DataMigration()
+
+    val addUser = Props.get("add-user").toBoolean
+    val addRelation = Props.get("add-relation").toBoolean
+    val relationSyn = Props.get("relation-syn").toBoolean
+    val cleanTitanInstances = Props.get("clean-titan-instances").toBoolean
+
+    val mysql = new MySQL()
+    mysql.getRelationFromMySqlDB
+
+    if (addUser || addRelation) {
+      if (addUser) {
+        val titanInit = new TitanInit()
+        titanInit.run()
+        dataMigration.addUsers()
+        titanInit.usernameUnique()
+        titanInit.closeTitanGraph()
+      }
+      if (addRelation) dataMigration.addRelations()
+    }
+
+    if (relationSyn) {
+      dataMigration.relationsSyn()
+    }
+
+    if (cleanTitanInstances) {
+      val titanInit = new TitanInit()
+      titanInit.killOtherTitanInstances()
+      titanInit.closeTitanGraph()
+    }
+
+    MySparkContext.instance().stop()
+    logInfo(s"共耗时:${(System.currentTimeMillis() - beginTime) / 1000}s")
+    //System.exit(0)
   }
 }

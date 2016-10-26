@@ -14,9 +14,12 @@ object Main extends Logging {
     val addUser = Props.get("add-user").toBoolean
     val addRelation = Props.get("add-relation").toBoolean
     val relationSyn = Props.get("relation-syn").toBoolean
+    val cleanTitanInstances = Props.get("clean-titan-instances").toBoolean
+
+    val mysql = new MySQL()
+    mysql.getRelationFromMySqlDB
 
     if (addUser || addRelation) {
-      dataMigration.getRelationFromMySqlDB
       if (addUser) {
         val titanInit = new TitanInit()
         titanInit.run()
@@ -31,8 +34,14 @@ object Main extends Logging {
       dataMigration.relationsSyn()
     }
 
+    if (cleanTitanInstances) {
+      val titanInit = new TitanInit()
+      titanInit.killOtherTitanInstances()
+      titanInit.closeTitanGraph()
+    }
+
     MySparkContext.instance().stop()
     logInfo(s"共耗时:${(System.currentTimeMillis() - beginTime) / 1000}s")
-    System.exit(0)
+    //System.exit(0)
   }
 }

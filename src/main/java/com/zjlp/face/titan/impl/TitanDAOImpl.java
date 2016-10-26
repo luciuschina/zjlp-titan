@@ -153,7 +153,6 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO, Serializable {
 
     /**
      * 获取二度好友
-     * //TODO 如果查询效率低，尝试将friends的VID也查出来
      *
      * @param username
      * @param friends
@@ -163,7 +162,6 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO, Serializable {
         Map<String, Integer> result = new HashMap<String, Integer>();
         String userVID = esDAO.getVertexId(username);
         String[] friendsVID = esDAO.getVertexIds(friends);
-        System.out.println(friendsVID[0] + " "+friendsVID[1]);
         if (userVID != null) {
             List<String> oneDegreeFriends = getOneDegreeFriends(userVID, friendsVID);
             List<String> twoDegreeFriends = getTwoDegreeFriends(userVID, friendsVID);
@@ -201,7 +199,8 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO, Serializable {
 
     public static void main(String[] args) {
         ITitanDAO d = new TitanDAOImpl();
-        System.out.println(d.getComFriendsNum("15658866602", new String[]{"12300007777", "15658866602","1q21"}));
+        d.addRelation("林心","张三");
+
         System.exit(0);
     }
 

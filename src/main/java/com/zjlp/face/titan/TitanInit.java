@@ -13,6 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.temporal.ChronoUnit;
+import java.util.Iterator;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 public class TitanInit extends TitanCon {
@@ -35,25 +37,33 @@ public class TitanInit extends TitanCon {
         mgmt.makeVertexLabel("person").make();
         mgmt.commit();
     }
+    public void killOtherTitanInstances() {
+        TitanManagement mgmt = getTitanGraph().openManagement();
+        //更改GLOBAL_OFFLINE属性前需要先关闭其他Titan实例
+        Iterator<String> it = mgmt.getOpenInstances().iterator();
+        while (it.hasNext()) {
+            String nxt = it.next();
+            if (!nxt.contains("current"))
+                mgmt.forceCloseInstance(nxt);
+        }
+        mgmt.commit();
+    }
+    public void setGlobalOfflineOption(String key, Object value) {
+        killOtherTitanInstances();
+        TitanManagement mgmt = getTitanGraph().openManagement();
+        //设置GLOBAL_OFFLINE属性
+        mgmt.set(key, value);
+        mgmt.commit();
+    }
+
+    public void setDBcacheTime() {
+        setGlobalOfflineOption("cache.db-cache-time", 1800000);
+    }
 
     public void createEdgeLabel() {
         TitanManagement mgmt = getTitanGraph().openManagement();
         mgmt.makeEdgeLabel("knows").multiplicity(Multiplicity.SIMPLE).make();
         mgmt.commit();
-    }
-
-    /**
-     * 删除ES索引
-     */
-    public void dropTitanEsIndex() {
-        //TODO 后面实现
-    }
-
-    /**
-     * 创建ES索引
-     */
-    public void createTitanEsIndex() {
-        //TODO 后面实现
     }
 
     public void usernameUnique() {
@@ -69,21 +79,21 @@ public class TitanInit extends TitanCon {
                     .timeout(60, ChronoUnit.MINUTES) // set timeout to 60 min
                     .call();
         } catch (InterruptedException e) {
-            LOGGER.error("InterruptedException",e);
+            LOGGER.error("InterruptedException", e);
         }
         //Reindex the existing data
         mgmt = graph.openManagement();
         try {
             mgmt.updateIndex(mgmt.getGraphIndex("usernameUnique"), SchemaAction.REINDEX).get();
         } catch (InterruptedException e) {
-            LOGGER.error("InterruptedException" , e);
+            LOGGER.error("InterruptedException", e);
         } catch (ExecutionException e) {
-            LOGGER.error("ExecutionException" , e);
+            LOGGER.error("ExecutionException", e);
         }
         mgmt.commit();
     }
 
-    public void run(){
+    public void run() {
         cleanTitanGraph();
         createVertexLabel();
         createEdgeLabel();
