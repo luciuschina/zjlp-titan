@@ -2,10 +2,9 @@ package com.zjlp.face.spark.base
 
 import com.zjlp.face.spark.utils.SparkUtils
 import com.zjlp.face.titan.TitanInit
-import com.zjlp.face.titan.impl.TitanDAOImpl
+import com.zjlp.face.titan.impl.{MultiTitanDAOImpl, OneTitanDAOImpl}
 import org.apache.spark.Logging
 import scala.collection.JavaConversions._
-
 
 class DataMigration extends Logging with scala.Serializable {
 
@@ -26,8 +25,8 @@ class DataMigration extends Logging with scala.Serializable {
     MySQLContext.instance().sql("select username from relation union select loginAccount from relation ")
       .map(r => r(0).toString).distinct().foreachPartition {
       usernameRDD =>
-        val titanDao = new TitanDAOImpl()
-        usernameRDD.foreach(username => titanDao.addUser(username))
+        val titanDao = new MultiTitanDAOImpl()
+        usernameRDD.foreach(username => titanDao.addUser(username,titanDao.getTitanGraph))
         titanDao.closeTitanGraph()
     }
   }
@@ -38,15 +37,15 @@ class DataMigration extends Logging with scala.Serializable {
     MySQLContext.instance().sql("select usernameVID,vertexId as loginAccountVID from  (select vertexId as usernameVID,loginAccount from relation inner join usernameVertexIdMap on usernameInES = username) b inner join usernameVertexIdMap on usernameInES = loginAccount")
       .map(r => (r(0).toString, r(1).toString)).distinct().foreachPartition {
       pairRDDs =>
-        val titanDao: TitanDAOImpl = new TitanDAOImpl()
+        val titanDao: MultiTitanDAOImpl = new MultiTitanDAOImpl()
         var count = 0
         pairRDDs.foreach {
           pairRDD =>
-            titanDao.addRelationByVID(pairRDD._1, pairRDD._2, false)
+            titanDao.addRelationByVID(pairRDD._1, pairRDD._2, false,titanDao.getTitanGraph(0))
             count = count + 1
-            if (count % 1000 == 0) titanDao.getGraphTraversal.tx().commit()
+            if (count % 1000 == 0) titanDao.getTitanGraph(0).tx().commit()
         }
-        titanDao.getGraphTraversal.tx().commit()
+        titanDao.getTitanGraph(0).tx().commit()
         titanDao.closeTitanGraph()
     }
     logInfo(s"addRelations 耗时:${(System.currentTimeMillis() - beginTime) / 1000}s")
@@ -74,9 +73,9 @@ class DataMigration extends Logging with scala.Serializable {
       .map(r => (r(0).toString, r(1).toString)).persist() //3
 
     val relInMysql = sqlContext.sql("select username,loginAccount from relation")
-        .map(r => (r(0).toString, r(1).toString)).persist()  //4
+      .map(r => (r(0).toString, r(1).toString)).persist() //4
 
-    val titan = new TitanDAOImpl()
+    val titan = new OneTitanDAOImpl()
 
     val userInMysql = sqlContext.sql("select username from relation union select loginAccount from relation ")
       .map(r => r(0).toString).distinct()
@@ -96,7 +95,7 @@ class DataMigration extends Logging with scala.Serializable {
     sqlContext.sql("select vertexId from usernameVertexIdMap ")
       .map(r => r(0).toString).mapPartitions {
       vidRDD =>
-        val titan = new TitanDAOImpl()
+        val titan = new OneTitanDAOImpl()
         vidRDD.flatMap {
           vid => titan.getAllFriendVIDs(vid).map(friendId => (vid, friendId.toString))
         }
@@ -122,7 +121,7 @@ object DataMigration extends Logging with scala.Serializable {
         val titanInit = new TitanInit()
         titanInit.run()
         dataMigration.addUsers()
-        titanInit.usernameUnique()
+        titanInit.usernameUnique(titanInit.getTitanGraph)
         titanInit.closeTitanGraph()
       }
       if (addRelation) dataMigration.addRelations()
@@ -134,7 +133,7 @@ object DataMigration extends Logging with scala.Serializable {
 
     if (cleanTitanInstances) {
       val titanInit = new TitanInit()
-      titanInit.killOtherTitanInstances()
+      titanInit.killOtherTitanInstances(titanInit.getTitanGraph)
       titanInit.closeTitanGraph()
     }
 

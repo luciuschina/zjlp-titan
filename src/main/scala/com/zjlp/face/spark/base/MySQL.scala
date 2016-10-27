@@ -9,9 +9,10 @@ class MySQL {
   def cacheRelationFromMysql = {
     val sqlContext = MySQLContext.instance()
     SparkUtils.dropTempTables(sqlContext, "relInES", "relation")
-    sqlContext.read.format("jdbc").options(Map(
+
+    MySQLContext.instance().read.format("jdbc").options(Map(
       "url" -> Props.get("jdbc_conn"),
-      "dbtable" -> s"(select rosterId,username,loginAccount from of_roster where username != loginAccount) tb",
+      "dbtable" -> s"(select rosterID as rosterId,username,loginAccount from view_ofroster where sub=3 and userID is not null and username != loginAccount) tb",
       "driver" -> Props.get("jdbc_driver"),
       "partitionColumn" -> "rosterId",
       "lowerBound" -> "1",
@@ -19,6 +20,7 @@ class MySQL {
       "numPartitions" -> Props.get("mysql_table_partition")
     )).load()
       .registerTempTable("relation")
+
     MySQLContext.instance().sql(s"cache table relation")
   }
 
@@ -26,7 +28,7 @@ class MySQL {
 
     return MySQLContext.instance().read.format("jdbc").options(Map(
       "url" -> Props.get("jdbc_conn"),
-      "dbtable" -> s"(select max(rosterId) from of_roster ) tb",
+      "dbtable" -> s"(select max(rosterId) from view_ofroster ) tb",
       "driver" -> Props.get("jdbc_driver")
     )).load().map(a => a(0).toString.toLong).max().toString
 

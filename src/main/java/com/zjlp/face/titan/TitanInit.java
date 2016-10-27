@@ -17,7 +17,7 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
-public class TitanInit extends TitanCon {
+public class TitanInit extends TitanConPool {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TitanInit.class);
 
@@ -31,14 +31,14 @@ public class TitanInit extends TitanCon {
         LOGGER.info("清空tatin中的所有数据");
     }
 
-    public void createVertexLabel() {
-        TitanManagement mgmt = getTitanGraph().openManagement();
+    public void createVertexLabel(TitanGraph graph) {
+        TitanManagement mgmt = graph.openManagement();
         mgmt.makePropertyKey("username").dataType(String.class).cardinality(Cardinality.SINGLE).make();
         mgmt.makeVertexLabel("person").make();
         mgmt.commit();
     }
-    public void killOtherTitanInstances() {
-        TitanManagement mgmt = getTitanGraph().openManagement();
+    public void killOtherTitanInstances(TitanGraph graph) {
+        TitanManagement mgmt = graph.openManagement();
         //更改GLOBAL_OFFLINE属性前需要先关闭其他Titan实例
         Iterator<String> it = mgmt.getOpenInstances().iterator();
         while (it.hasNext()) {
@@ -49,8 +49,9 @@ public class TitanInit extends TitanCon {
         mgmt.commit();
     }
     public void setGlobalOfflineOption(String key, Object value) {
-        killOtherTitanInstances();
-        TitanManagement mgmt = getTitanGraph().openManagement();
+        TitanGraph graph = getTitanGraph();
+        killOtherTitanInstances(graph);
+        TitanManagement mgmt = graph.openManagement();
         //设置GLOBAL_OFFLINE属性
         mgmt.set(key, value);
         mgmt.commit();
@@ -60,14 +61,14 @@ public class TitanInit extends TitanCon {
         setGlobalOfflineOption("cache.db-cache-time", 1800000);
     }
 
-    public void createEdgeLabel() {
-        TitanManagement mgmt = getTitanGraph().openManagement();
+    public void createEdgeLabel(TitanGraph graph) {
+        TitanManagement mgmt = graph.openManagement();
         mgmt.makeEdgeLabel("knows").multiplicity(Multiplicity.SIMPLE).make();
         mgmt.commit();
     }
 
-    public void usernameUnique() {
-        TitanGraph graph = getTitanGraph();
+    public void usernameUnique(TitanGraph graph) {
+
         graph.tx().rollback();  //Never create new indexes while a transaction is active
         TitanManagement mgmt = graph.openManagement();
         PropertyKey username = mgmt.getPropertyKey("username");
@@ -94,9 +95,11 @@ public class TitanInit extends TitanCon {
     }
 
     public void run() {
+
         cleanTitanGraph();
-        createVertexLabel();
-        createEdgeLabel();
+        TitanGraph graph = getTitanGraph();
+        createVertexLabel(graph);
+        createEdgeLabel(graph);
         closeTitanGraph();
     }
 

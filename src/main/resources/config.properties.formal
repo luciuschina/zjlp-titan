@@ -1,6 +1,6 @@
 jdbc_driver=com.mysql.jdbc.Driver
-
-jdbc_conn=jdbc:mysql://192.168.0.148:33148/sl_spark?user=spark_query&password=root123&useUnicode=true&characterEncoding=UTF8
+jdbc_conn=jdbc:mysql://192.168.0.110:3306/wgj_s4?user=queryspark&password=OBE3ABRHA2tg&useUnicode=true&characterEncoding=UTF8
+jdbc_conn_test=jdbc:mysql://192.168.0.148:33148/sl_spark?user=spark_query&password=root123&useUnicode=true&characterEncoding=UTF8
 spark.master=spark://192.168.0.151:7077
 spark.app.name=SparkTitanDataMigration
 
@@ -22,8 +22,8 @@ strict=true
 double.filtering=false
 
 titan-cassandra=/opt/tomcat-7.0.69/webapps/zjlp-titan-1.0/WEB-INF/classes/titan-cassandra.properties
-
 titan-es-index=titan-es
+titan-con-pool-size=10
 
 add-user=false
 add-relation=false

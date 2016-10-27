@@ -22,11 +22,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-@Service("TitanDAOImpl")
-public class TitanDAOImpl extends TitanCon implements ITitanDAO, Serializable {
+@Service("OneTitanDAOImpl")
+public class OneTitanDAOImpl extends TitanCon implements ITitanDAO, Serializable {
     private static IEsDAO esDAO = new EsDAOImpl();
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(TitanDAOImpl.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(OneTitanDAOImpl.class);
 
     public void cacheFor(String username) {
         if (esDAO.ifCache(username)) {
@@ -209,7 +209,7 @@ public class TitanDAOImpl extends TitanCon implements ITitanDAO, Serializable {
 
 
     public static void main(String[] args) {
-        ITitanDAO d = new TitanDAOImpl();
+        ITitanDAO d = new OneTitanDAOImpl();
         d.cacheFor("13100002001");
         System.exit(0);
     }
