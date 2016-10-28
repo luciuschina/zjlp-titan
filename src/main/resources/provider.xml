@@ -13,5 +13,5 @@
 	<dubbo:protocol name="dubbo" port="${dubbo.protocol.port}" />
 	<dubbo:provider></dubbo:provider>
 
-	<dubbo:service interface="com.zjlp.face.titan.ITitanDAO" ref="MultiTitanDAOImpl" version="${dubbo.version}" retries="0" timeout="${dubbo.timeout}" />
+	<dubbo:service interface="com.zjlp.face.titan.ITitanDAO" ref="TitanDAOImpl" version="${dubbo.version}" retries="0" timeout="${dubbo.timeout}" />
 </beans>

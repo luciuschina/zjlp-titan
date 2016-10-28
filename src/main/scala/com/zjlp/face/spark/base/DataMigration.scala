@@ -2,7 +2,7 @@ package com.zjlp.face.spark.base
 
 import com.zjlp.face.spark.utils.SparkUtils
 import com.zjlp.face.titan.TitanInit
-import com.zjlp.face.titan.impl.{MultiTitanDAOImpl, OneTitanDAOImpl}
+import com.zjlp.face.titan.impl.TitanDAOImpl
 import org.apache.spark.Logging
 import scala.collection.JavaConversions._
 
@@ -25,7 +25,7 @@ class DataMigration extends Logging with scala.Serializable {
     MySQLContext.instance().sql("select username from relation union select loginAccount from relation ")
       .map(r => r(0).toString).distinct().foreachPartition {
       usernameRDD =>
-        val titanDao = new MultiTitanDAOImpl()
+        val titanDao = new TitanDAOImpl()
         usernameRDD.foreach(username => titanDao.addUser(username,titanDao.getTitanGraph))
         titanDao.closeTitanGraph()
     }
@@ -37,7 +37,7 @@ class DataMigration extends Logging with scala.Serializable {
     MySQLContext.instance().sql("select usernameVID,vertexId as loginAccountVID from  (select vertexId as usernameVID,loginAccount from relation inner join usernameVertexIdMap on usernameInES = username) b inner join usernameVertexIdMap on usernameInES = loginAccount")
       .map(r => (r(0).toString, r(1).toString)).distinct().foreachPartition {
       pairRDDs =>
-        val titanDao: MultiTitanDAOImpl = new MultiTitanDAOImpl()
+        val titanDao: TitanDAOImpl = new TitanDAOImpl()
         var count = 0
         pairRDDs.foreach {
           pairRDD =>
@@ -75,12 +75,12 @@ class DataMigration extends Logging with scala.Serializable {
     val relInMysql = sqlContext.sql("select username,loginAccount from relation")
       .map(r => (r(0).toString, r(1).toString)).persist() //4
 
-    val titan = new OneTitanDAOImpl()
+    val titan = new TitanDAOImpl()
 
     val userInMysql = sqlContext.sql("select username from relation union select loginAccount from relation ")
       .map(r => r(0).toString).distinct()
     val userInTitan = relInTitan.flatMap(t => List(t._1, t._2)).distinct()
-    userInMysql.subtract(userInTitan).collect().foreach(username => titan.addUser(username)) //5
+    userInMysql.subtract(userInTitan).collect().foreach(username => titan.addUser(username,titan.getTitanGraph)) //5
 
     relInTitan.subtract(relInMysql).collect().foreach(rel => titan.deleteRelation(rel._1, rel._2)) //6
     relInMysql.subtract(relInTitan).collect().foreach(rel => titan.addRelation(rel._1, rel._2)) //7
@@ -95,7 +95,7 @@ class DataMigration extends Logging with scala.Serializable {
     sqlContext.sql("select vertexId from usernameVertexIdMap ")
       .map(r => r(0).toString).mapPartitions {
       vidRDD =>
-        val titan = new OneTitanDAOImpl()
+        val titan = new TitanDAOImpl()
         vidRDD.flatMap {
           vid => titan.getAllFriendVIDs(vid).map(friendId => (vid, friendId.toString))
         }

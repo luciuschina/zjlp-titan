@@ -1,10 +1,11 @@
 package com.zjlp.face.titan.impl;
 
 import com.thinkaurelius.titan.core.SchemaViolationException;
+import com.thinkaurelius.titan.core.TitanGraph;
 import com.zjlp.face.bean.UsernameVID;
 import com.zjlp.face.titan.IEsDAO;
-import com.zjlp.face.titan.TitanCon;
 import com.zjlp.face.titan.ITitanDAO;
+import com.zjlp.face.titan.TitanConPool;
 import org.apache.tinkerpop.gremlin.process.traversal.P;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
@@ -17,20 +18,18 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
-@Service("OneTitanDAOImpl")
-public class OneTitanDAOImpl extends TitanCon implements ITitanDAO, Serializable {
+@Service("TitanDAOImpl")
+public class TitanDAOImpl extends TitanConPool implements ITitanDAO, Serializable {
     private static IEsDAO esDAO = new EsDAOImpl();
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(OneTitanDAOImpl.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(TitanDAOImpl.class);
 
     public void cacheFor(String username) {
         if (esDAO.ifCache(username)) {
             try {
+                LOGGER.info("对"+username+"作提前缓存");
                 getComFriendsNum(username, new String[]{username});
             } catch (Exception e) {
                 LOGGER.error("cacheFor exception", e);
@@ -44,18 +43,18 @@ public class OneTitanDAOImpl extends TitanCon implements ITitanDAO, Serializable
      * @param userName
      * @return
      */
-    public String addUser(String userName) {
+    public String addUser(String userName, TitanGraph graph) {
         String vid = null;
         try {
-            vid = getTitanGraph().addVertex(T.label, "person", "username", userName).id().toString();
+            vid = graph.addVertex(T.label, "person", "username", userName).id().toString();
             esDAO.create(new UsernameVID(userName, vid));
-            getTitanGraph().tx().commit();
+            graph.tx().commit();
             LOGGER.debug("添加新用户:" + userName);
         } catch (IOException e) {
             LOGGER.error("往ES中插入doc失败: username '" + userName + "'", e);
         } catch (Exception e) {
             LOGGER.error("用户'" + userName + "'已经存在,插入失败", e);
-            getTitanGraph().tx().rollback();
+            graph.tx().rollback();
         }
         return vid;
     }
@@ -67,8 +66,8 @@ public class OneTitanDAOImpl extends TitanCon implements ITitanDAO, Serializable
      * @param friendVID
      * @param autoCommit true表示自动提交事物。false表示手动提交事务，适用于批量提交时。
      */
-    public void addRelationByVID(String userVID, String friendVID, Boolean autoCommit) throws Exception {
-        GraphTraversalSource g = getGraphTraversal();
+    public void addRelationByVID(String userVID, String friendVID, Boolean autoCommit, TitanGraph graph) throws Exception {
+        GraphTraversalSource g = graph.traversal();
         try {
             g.V(userVID).next().addEdge("knows", g.V(friendVID).next());
             if (autoCommit) g.tx().commit();
@@ -91,24 +90,26 @@ public class OneTitanDAOImpl extends TitanCon implements ITitanDAO, Serializable
     public void addRelation(String username, String friendUsername, Boolean autoCommit) {
         String userVID = esDAO.getVertexId(username);
         String friendVID = esDAO.getVertexId(friendUsername);
+        TitanGraph graph = getTitanGraph(username);
         if (userVID == null) {
-            userVID = addUser(username);
+            userVID = addUser(username, graph);
         }
         if (friendVID == null) {
-            friendVID = addUser(friendUsername);
+            friendVID = addUser(friendUsername, graph);
         }
         try {
-            addRelationByVID(userVID, friendVID, autoCommit);
+            addRelationByVID(userVID, friendVID, autoCommit, graph);
         } catch (Exception e) {
+
             //主要为了防止 Titan的顶点已经删除，而ES的doc未删除的特殊情况
-            if (!getGraphTraversal().V().has("username", username).hasNext()) {
-                userVID = addUser(username);
+            if (!graph.traversal().V().has("username", username).hasNext()) {
+                userVID = addUser(username, graph);
             }
-            if (!getGraphTraversal().V().has("username", friendUsername).hasNext()) {
-                friendVID = addUser(username);
+            if (!graph.traversal().V().has("username", friendUsername).hasNext()) {
+                friendVID = addUser(username, graph);
             }
             try {
-                addRelationByVID(userVID, friendVID, autoCommit);
+                addRelationByVID(userVID, friendVID, autoCommit, graph);
             } catch (Exception e2) {
 
             }
@@ -128,7 +129,7 @@ public class OneTitanDAOImpl extends TitanCon implements ITitanDAO, Serializable
      */
     public void deleteRelation(String username, String friendUsername) {
         try {
-            GraphTraversalSource g = getGraphTraversal();
+            GraphTraversalSource g = getTitanGraph(username).traversal();
             g.V(esDAO.getVertexId(username)).outE() //.hasLabel("knows")
                     .where(__.otherV().values("username").is(friendUsername)).drop().iterate();
             g.tx().commit();
@@ -140,19 +141,19 @@ public class OneTitanDAOImpl extends TitanCon implements ITitanDAO, Serializable
     }
 
     public Set getAllFriendVIDs(String userVID) {
-        GraphTraversal oneDegreeFriends = getGraphTraversal().V(userVID).out("knows").id();
+        GraphTraversal oneDegreeFriends = getTitanGraph().traversal().V(userVID).out("knows").id();
         return oneDegreeFriends.toSet();
     }
 
-    private List<String> getOneDegreeFriends(String userVID, String[] friendsVID) {
-        GraphTraversal oneDegreeFriends = getGraphTraversal().V(userVID).out("knows").
+    private List<String> getOneDegreeFriends(String userVID, String[] friendsVID, TitanGraph graph) {
+        GraphTraversal oneDegreeFriends = graph.traversal().V(userVID).out("knows").
                 where(__.hasId(friendsVID)).values("username");
         return oneDegreeFriends.toList();
     }
 
 
-    private List<String> getTwoDegreeFriends(String userVID, String[] friendsVID) {
-        GraphTraversal twoDegreeFriends = getGraphTraversal().V(userVID).aggregate("u").out("knows").
+    private List<String> getTwoDegreeFriends(String userVID, String[] friendsVID, TitanGraph graph) {
+        GraphTraversal twoDegreeFriends = graph.traversal().V(userVID).aggregate("u").out("knows").
                 aggregate("f1").out("knows").
                 where(__.hasId(friendsVID)).
                 where(P.without("f1")).
@@ -172,9 +173,10 @@ public class OneTitanDAOImpl extends TitanCon implements ITitanDAO, Serializable
         Map<String, Integer> result = new HashMap<String, Integer>();
         String userVID = esDAO.getVertexId(username);
         String[] friendsVID = esDAO.getVertexIds(friends);
-        if (userVID != null) {
-            List<String> oneDegreeFriends = getOneDegreeFriends(userVID, friendsVID);
-            List<String> twoDegreeFriends = getTwoDegreeFriends(userVID, friendsVID);
+        TitanGraph graph = getTitanGraph(username);
+        if (userVID != null && friendsVID.length > 0) {
+            List<String> oneDegreeFriends = getOneDegreeFriends(userVID, friendsVID, graph);
+            List<String> twoDegreeFriends = getTwoDegreeFriends(userVID, friendsVID, graph);
             for (String friend : twoDegreeFriends) {
                 result.put(friend, 2);
             }
@@ -194,14 +196,15 @@ public class OneTitanDAOImpl extends TitanCon implements ITitanDAO, Serializable
      */
     public Map<Object, Long> getComFriendsNum(String username, String[] friends) {
         String userVID = esDAO.getVertexId(username);
-        if (userVID == null) {
+        String[] vids = esDAO.getVertexIds(friends);
+        if (userVID == null || vids.length == 0) {
             LOGGER.info("不存在username:" + username + "顶点");
             return new HashMap<Object, Long>();
         } else {
-            return getGraphTraversal().V(userVID)
+            return getTitanGraph(username).traversal().V(userVID)
                     .aggregate("u")
                     .out("knows").out("knows")
-                    .where(__.hasId(esDAO.getVertexIds(friends)))
+                    .where(__.hasId(vids))
                     .where(P.without("u"))
                     .values("username").groupCount().next();
         }
@@ -209,9 +212,19 @@ public class OneTitanDAOImpl extends TitanCon implements ITitanDAO, Serializable
 
 
     public static void main(String[] args) {
-        ITitanDAO d = new OneTitanDAOImpl();
-        d.cacheFor("13100002001");
-        System.exit(0);
+
+       /* ITitanDAO d = new TitanDAOImpl();
+        d.addRelation("111","222");
+        d.addRelation("111", "222");*/
+        List<String> list = new ArrayList();
+        list.add("111111");
+        list.add("22221111");
+        String [] aa = list.toArray(new String [list.size()]);
+
+        ITitanDAO d = new TitanDAOImpl();
+        d.getFriendsLevel("111",aa);
+
+        d.closeTitanGraph();
     }
 
 }
