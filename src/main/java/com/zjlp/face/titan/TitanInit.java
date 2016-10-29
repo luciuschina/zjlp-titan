@@ -13,8 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.temporal.ChronoUnit;
-import java.util.Iterator;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 public class TitanInit extends TitanConPool {
@@ -33,24 +31,14 @@ public class TitanInit extends TitanConPool {
 
     public void createVertexLabel(TitanGraph graph) {
         TitanManagement mgmt = graph.openManagement();
-        mgmt.makePropertyKey("username").dataType(String.class).cardinality(Cardinality.SINGLE).make();
+        mgmt.makePropertyKey("userId").dataType(String.class).cardinality(Cardinality.SINGLE).make();
         mgmt.makeVertexLabel("person").make();
         mgmt.commit();
     }
-    public void killOtherTitanInstances(TitanGraph graph) {
-        TitanManagement mgmt = graph.openManagement();
-        //更改GLOBAL_OFFLINE属性前需要先关闭其他Titan实例
-        Iterator<String> it = mgmt.getOpenInstances().iterator();
-        while (it.hasNext()) {
-            String nxt = it.next();
-            if (!nxt.contains("current"))
-                mgmt.forceCloseInstance(nxt);
-        }
-        mgmt.commit();
-    }
+
     public void setGlobalOfflineOption(String key, Object value) {
+        killAllTitanInstances();
         TitanGraph graph = getTitanGraph();
-        killOtherTitanInstances(graph);
         TitanManagement mgmt = graph.openManagement();
         //设置GLOBAL_OFFLINE属性
         mgmt.set(key, value);
@@ -67,16 +55,16 @@ public class TitanInit extends TitanConPool {
         mgmt.commit();
     }
 
-    public void usernameUnique(TitanGraph graph) {
+    public void userIdUnique(TitanGraph graph) {
 
         graph.tx().rollback();  //Never create new indexes while a transaction is active
         TitanManagement mgmt = graph.openManagement();
-        PropertyKey username = mgmt.getPropertyKey("username");
-        mgmt.buildIndex("usernameUnique", Vertex.class).addKey(username).unique().buildCompositeIndex();
+        PropertyKey userId = mgmt.getPropertyKey("userId");
+        mgmt.buildIndex("userIdUnique", Vertex.class).addKey(userId).unique().buildCompositeIndex();
         mgmt.commit();
         //Wait for the index to become available
         try {
-            ManagementSystem.awaitGraphIndexStatus(graph, "usernameUnique")
+            ManagementSystem.awaitGraphIndexStatus(graph, "userIdUnique")
                     .timeout(60, ChronoUnit.MINUTES) // set timeout to 60 min
                     .call();
         } catch (InterruptedException e) {
@@ -85,7 +73,7 @@ public class TitanInit extends TitanConPool {
         //Reindex the existing data
         mgmt = graph.openManagement();
         try {
-            mgmt.updateIndex(mgmt.getGraphIndex("usernameUnique"), SchemaAction.REINDEX).get();
+            mgmt.updateIndex(mgmt.getGraphIndex("userIdUnique"), SchemaAction.REINDEX).get();
         } catch (InterruptedException e) {
             LOGGER.error("InterruptedException", e);
         } catch (ExecutionException e) {
@@ -103,7 +91,4 @@ public class TitanInit extends TitanConPool {
         closeTitanGraph();
     }
 
-    public static void main(String[] args) {
-        new TitanInit().run();
-    }
 }

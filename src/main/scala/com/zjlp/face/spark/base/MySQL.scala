@@ -10,9 +10,19 @@ class MySQL {
     val sqlContext = MySQLContext.instance()
     SparkUtils.dropTempTables(sqlContext, "relInES", "relation")
 
+   /* MySQLContext.instance().read.format("jdbc").options(Map(
+      "url" -> Props.get("jdbc_conn"),
+      "dbtable" -> s"(select rosterID as rosterId,username,loginAccount,userId from of_roster where username != loginAccount) tb",
+      "driver" -> Props.get("jdbc_driver"),
+      "partitionColumn" -> "rosterId",
+      "lowerBound" -> "1",
+      "upperBound" -> getRosterUpperBound(),
+      "numPartitions" -> Props.get("mysql_table_partition")
+    )).load()
+      .registerTempTable("relation")*/
     MySQLContext.instance().read.format("jdbc").options(Map(
       "url" -> Props.get("jdbc_conn"),
-      "dbtable" -> s"(select rosterID as rosterId,username,loginAccount from view_ofroster where sub=3 and userID is not null and username != loginAccount) tb",
+      "dbtable" -> s"(select rosterID as rosterId,username,loginAccount,userID as userId from view_ofroster where sub=3 and userID is not null and username != loginAccount) tb",
       "driver" -> Props.get("jdbc_driver"),
       "partitionColumn" -> "rosterId",
       "lowerBound" -> "1",

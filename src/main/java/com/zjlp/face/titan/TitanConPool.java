@@ -2,7 +2,10 @@ package com.zjlp.face.titan;
 
 import com.thinkaurelius.titan.core.TitanFactory;
 import com.thinkaurelius.titan.core.TitanGraph;
+import com.thinkaurelius.titan.core.schema.TitanManagement;
 import com.zjlp.face.spark.base.Props;
+
+import java.util.Iterator;
 
 public class TitanConPool {
     private int poolSize = Integer.valueOf(Props.get("titan-con-pool-size"));
@@ -15,8 +18,8 @@ public class TitanConPool {
         }
     }
 
-    public TitanGraph getTitanGraph(String username) {
-        return getTitanGraph(Math.abs(username.hashCode()));
+    public TitanGraph getTitanGraph(String userId) {
+        return getTitanGraph(Math.abs(userId.hashCode()));
     }
 
     public TitanGraph getTitanGraph() {
@@ -29,6 +32,20 @@ public class TitanConPool {
             graphs[i] = TitanFactory.open(Props.get("titan-cassandra"));
         }
         return graphs[i];
+    }
+
+    public void killAllTitanInstances() {
+        TitanGraph graph = getTitanGraph();
+        TitanManagement mgmt = graph.openManagement();
+        //更改GLOBAL_OFFLINE属性前需要先关闭其他Titan实例
+        Iterator<String> it = mgmt.getOpenInstances().iterator();
+        while (it.hasNext()) {
+            String nxt = it.next();
+            if (!nxt.contains("current"))
+                mgmt.forceCloseInstance(nxt);
+        }
+        mgmt.commit();
+        graph.close();
     }
 
 }

@@ -1,6 +1,7 @@
 package com.zjlp.face.spark.base
 
 import com.zjlp.face.spark.utils.SparkUtils
+import com.zjlp.face.titan.TitanConPool
 import org.apache.spark.Logging
 import org.elasticsearch.spark.rdd.EsSpark
 import org.elasticsearch.spark.rdd.Metadata._
@@ -10,9 +11,9 @@ class CacheHotUser extends Logging with scala.Serializable {
 
   def updateHotUsers = {
     val sqlContext = MySQLContext.instance()
-    val hotUserInMysql = sqlContext.sql("select username,count(1) from relation group by username ")
+    val hotUserInMysql = sqlContext.sql("select userId,count(1) from relation group by userId ")
       .map(r => (r(0).toString, r(1).toString.toInt)).filter(_._2 >= friendNumberOfHotUser).map(a=> a._1).persist()
-    val hotUserInES = sqlContext.sql("select usernameInES from hotUser where isCached = true").map(r => r(0).toString)
+    val hotUserInES = sqlContext.sql("select userIdInES from hotUser where isCached = true").map(r => r(0).toString)
     val userCache = hotUserInMysql.subtract(hotUserInES).map(a => Tuple2(Map(ID -> a), Map("isCached" -> true)))
     EsSpark.saveToEsWithMeta(userCache, s"titan-es/ifcache")
     val userUncache = hotUserInES.subtract(hotUserInMysql).map(a => Tuple2(Map(ID -> a), Map("isCached" -> false)))
@@ -21,12 +22,12 @@ class CacheHotUser extends Logging with scala.Serializable {
 
   def cacheHotUserFromES = {
     val sqlContext = MySQLContext.instance()
-    SparkUtils.dropTempTables(sqlContext, "relInES", "usernameVertexIdMap")
+    SparkUtils.dropTempTables(sqlContext, "hotUser", "hotUserCacheInES")
     sqlContext.sql(
       s"CREATE TEMPORARY TABLE hotUserCacheInES " +
         s"USING org.elasticsearch.spark.sql " +
         s"OPTIONS (resource '${Props.get("titan-es-index")}/ifcache', es.read.metadata 'true')")
-    sqlContext.sql("SELECT _metadata._id as usernameInES, isCached FROM hotUserCacheInES")
+    sqlContext.sql("SELECT _metadata._id as userIdInES, isCached FROM hotUserCacheInES")
       .registerTempTable("hotUser")
     sqlContext.sql("cache table hotUser")
   }
@@ -40,6 +41,7 @@ object CacheHotUser extends Logging with scala.Serializable {
     val chu = new CacheHotUser()
     chu.cacheHotUserFromES
     chu.updateHotUsers
+    if (Props.get("clean-titan-instances").toBoolean) new TitanConPool().killAllTitanInstances()
     logInfo(s"共耗时:${(System.currentTimeMillis() - beginTime) / 1000}s")
   }
 }

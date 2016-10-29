@@ -1,14 +1,11 @@
 package com.zjlp.face.titan;
 
-import com.zjlp.face.bean.UsernameVID;
+import com.zjlp.face.bean.UserVertexIdPair;
 import org.elasticsearch.client.Client;
 
 import java.io.IOException;
 import java.util.List;
 
-/**
- * Created by lingxin on 10/18/16.
- */
 public interface IEsDAO {
     Client getEsClient();
 
@@ -16,26 +13,26 @@ public interface IEsDAO {
      * 插入多个用户信息
      * @param items
      */
-    void multiCreate(List<UsernameVID> items);
+    void multiCreate(List<UserVertexIdPair> items);
 
     /**
      * 插入一个用户信息
      * @param item
      */
-    void create(UsernameVID item) throws IOException;
+    void create(UserVertexIdPair item) throws IOException;
 
 
     /**
-     * 根据username获取顶点id
-     * @param username
+     * 根据userId获取顶点id
+     * @param userId
      * @return
      */
-    String getVertexId(String username);
+    String getVertexId(String userId);
 
 
-    String[] getVertexIds(String[] usernames);
+    String[] getVertexIds(List<String> friends);
 
-    boolean ifCache(String username);
+    boolean ifCache(String userId);
 
     void closeClient();
 }

@@ -1,6 +1,6 @@
 package com.zjlp.face.titan.impl;
 
-import com.zjlp.face.bean.UsernameVID;
+import com.zjlp.face.bean.UserVertexIdPair;
 import com.zjlp.face.spark.base.Props;
 import com.zjlp.face.spark.utils.EsUtils;
 import com.zjlp.face.titan.IEsDAO;
@@ -34,44 +34,44 @@ public class EsDAOImpl implements IEsDAO {
         return esClient;
     }
 
-    public void multiCreate(List<UsernameVID> items) {
+    public void multiCreate(List<UserVertexIdPair> items) {
         Client client = getEsClient();
         BulkRequestBuilder bulkRequest = client.prepareBulk();
-        for (UsernameVID item:items) {
+        for (UserVertexIdPair item:items) {
             try {
-                bulkRequest.add(client.prepareIndex(titanEsIndex, "rel", item.getUserName())
+                bulkRequest.add(client.prepareIndex(titanEsIndex, "rel", item.getUserId())
                         .setSource(jsonBuilder()
                                 .startObject()
                                 .field("vertexId", item.getVid())
                                 .endObject()));
             } catch (Exception e) {
-                LOGGER.error("ES插入索引失败.username:" + item.getUserName() + ",vertexId:" + item.getVid(), e);
+                LOGGER.error("ES插入索引失败.userId:" + item.getUserId() + ",vertexId:" + item.getVid(), e);
             }
         }
         bulkRequest.get();
     }
 
-    public void create(UsernameVID item) throws IOException {
-        getEsClient().prepareIndex(titanEsIndex, "rel", item.getUserName())
+    public void create(UserVertexIdPair item) throws IOException {
+        getEsClient().prepareIndex(titanEsIndex, "rel", item.getUserId())
                 .setSource(jsonBuilder().startObject().field("vertexId" , item.getVid()).endObject()).get();
     }
 
-    public String getVertexId(String username) {
+    public String getVertexId(String userId) {
         SearchResponse response = getEsClient().prepareSearch(titanEsIndex).setTypes("rel")
-                .setQuery(QueryBuilders.idsQuery().ids(username))
+                .setQuery(QueryBuilders.idsQuery().ids(userId))
                 .setExplain(false).execute().actionGet();
         SearchHit[] results = response.getHits().getHits();
         if (results != null && results.length > 0)
             return results[0].getSource().get("vertexId").toString();
         else {
-            LOGGER.warn("return null!. ES的titan-es这个索引中没有这个id:"+username);
+            LOGGER.warn("return null!. ES的titan-es这个索引中没有这个id:"+ userId);
             return null;
         }
     }
 
-    public boolean ifCache(String username) {
+    public boolean ifCache(String userId) {
         SearchResponse response = getEsClient().prepareSearch(titanEsIndex).setTypes("ifcache")
-                .setQuery(QueryBuilders.idsQuery().ids(username))
+                .setQuery(QueryBuilders.idsQuery().ids(userId))
                 .setExplain(false).execute().actionGet();
         SearchHit[] results = response.getHits().getHits();
         if (results != null && results.length > 0)
@@ -81,9 +81,9 @@ public class EsDAOImpl implements IEsDAO {
         }
     }
 
-    public String[] getVertexIds(String[] usernames) {
+    public String[] getVertexIds(List<String> friends) {
         MultiGetResponse multiGetItemResponses = getEsClient().prepareMultiGet()
-                .add(titanEsIndex, "rel", usernames)
+                .add(titanEsIndex, "rel", friends)
                 .get();
         List<String> vids = new ArrayList<String>();
         for (MultiGetItemResponse itemResponse : multiGetItemResponses) {
