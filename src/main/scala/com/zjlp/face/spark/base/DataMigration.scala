@@ -1,7 +1,7 @@
 package com.zjlp.face.spark.base
 
 import com.zjlp.face.spark.utils.SparkUtils
-import com.zjlp.face.titan.{TitanConPool, TitanInit}
+import com.zjlp.face.titan.TitanInit
 import com.zjlp.face.titan.impl.TitanDAOImpl
 import org.apache.spark.Logging
 import scala.collection.JavaConversions._
@@ -42,12 +42,9 @@ class DataMigration extends Logging with scala.Serializable {
       .foreachPartition {
       pairRDDs =>
         val titanDao: TitanDAOImpl = new TitanDAOImpl()
-        //var count = 0
         pairRDDs.foreach {
           pairRDD =>
             titanDao.addRelationByVID(pairRDD._1, pairRDD._2,titanDao.getTitanGraph(0))
-            //count = count + 1
-           // if (count % 1000 == 0) titanDao.getTitanGraph(0).tx().commit()
         }
         titanDao.getTitanGraph(0).tx().commit()
         titanDao.closeTitanGraph()

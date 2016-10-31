@@ -46,7 +46,7 @@ public class TitanInit extends TitanConPool {
     }
 
     public void setDBcacheTime() {
-        setGlobalOfflineOption("cache.db-cache-time", 1800000);
+        setGlobalOfflineOption("cache.db-cache-time", 4200000);
     }
 
     public void createEdgeLabel(TitanGraph graph) {
