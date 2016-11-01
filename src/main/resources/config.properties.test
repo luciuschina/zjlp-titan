@@ -31,6 +31,7 @@ add-relation=false
 relation-syn=true
 clean-titan-instances=false
 friend-num-of-hot-user=50
+cache-interval-hot-user=300
 
 
 spark.jars=file:/data/work/luciuschina/face-spark-web-service/target/face-spark-web-service.jar,file:/root/.m2/repository/mysql/mysql-connector-java/5.1.22/mysql-connector-java-5.1.22.jar

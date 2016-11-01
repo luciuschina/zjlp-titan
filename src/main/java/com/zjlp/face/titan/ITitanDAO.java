@@ -37,9 +37,8 @@ public interface ITitanDAO {
 
     /**
      * 对好友数多的用户的一二度好友进行提前缓存
-     * @param userId
      */
-    void cacheFor(String userId);
+/*    void cacheHotUsers();*/
 
     void closeTitanGraph();
 

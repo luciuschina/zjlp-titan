@@ -3,7 +3,6 @@ package com.zjlp.face.titan.impl;
 import com.thinkaurelius.titan.core.SchemaViolationException;
 import com.thinkaurelius.titan.core.TitanGraph;
 import com.zjlp.face.bean.UserVertexIdPair;
-import com.zjlp.face.titan.IEsDAO;
 import com.zjlp.face.titan.ITitanDAO;
 import com.zjlp.face.titan.TitanConPool;
 import org.apache.tinkerpop.gremlin.process.traversal.P;
@@ -22,22 +21,10 @@ import java.util.*;
 
 @Service("TitanDAOImpl")
 public class TitanDAOImpl extends TitanConPool implements ITitanDAO, Serializable {
-    private static IEsDAO esDAO = new EsDAOImpl();
+    private static EsDAOImpl esDAO = new EsDAOImpl();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TitanDAOImpl.class);
 
-    public void cacheFor(String userId) {
-        if (esDAO.ifCache(userId)) {
-            try {
-                LOGGER.info("对" + userId + "作提前缓存");
-                List<String> list = new ArrayList();
-                list.add(userId);
-                getComFriendsNum(userId, list);
-            } catch (Exception e) {
-                LOGGER.error("cacheFor exception", e);
-            }
-        }
-    }
 
     /**
      * 新增一个用户
@@ -209,6 +196,45 @@ public class TitanDAOImpl extends TitanConPool implements ITitanDAO, Serializabl
 
     public static void main(String[] args) {
 
+
     }
 
+/*    private class CacheHotUserThread extends Thread {
+        private String userId;
+
+        public CacheHotUserThread(String name) {
+            super(name);//调用父类带参数的构造方法
+        }
+
+        public CacheHotUserThread(String name, String userId) {
+            new CacheHotUserThread(name);
+            this.userId = userId;
+        }
+
+        public void run() {
+            LOGGER.info("热点用户(" + this.userId + ")开始缓存");
+            List<String> friends = new ArrayList<String>();
+            friends.add(this.userId);
+            getComFriendsNum(this.userId, friends);
+            LOGGER.info("热点用户(" + this.userId + ")缓存完毕");
+        }
+    }
+
+
+    public void cacheHotUsers() {
+        List<String> hotUsers = esDAO.getHotUsers();
+        long interval = Integer.valueOf(Props.get("cache-interval-hot-user"));
+        long begin = System.currentTimeMillis();
+        LOGGER.info("开始缓存热点用户");
+        for (String hotUser : hotUsers) {
+            //如果该方法执行了50分钟还没执行完，那么就不再执行了
+            if ((System.currentTimeMillis() - begin) > 3000000) return;
+            new CacheHotUserThread("thread_" + hotUser, hotUser).run();
+            try {
+                Thread.sleep(interval);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }*/
 }

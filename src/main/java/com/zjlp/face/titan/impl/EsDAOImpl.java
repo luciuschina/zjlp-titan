@@ -69,16 +69,18 @@ public class EsDAOImpl implements IEsDAO {
         }
     }
 
-    public boolean ifCache(String userId) {
+    public List<String> getHotUsers() {
         SearchResponse response = getEsClient().prepareSearch(titanEsIndex).setTypes("ifcache")
-                .setQuery(QueryBuilders.idsQuery().ids(userId))
+                .setFrom(0).setSize(10000)
+                .setQuery(QueryBuilders.termQuery("isCached", true))
                 .setExplain(false).execute().actionGet();
-        SearchHit[] results = response.getHits().getHits();
-        if (results != null && results.length > 0)
-            return Boolean.valueOf(results[0].getSource().get("isCached").toString());
-        else {
-            return false;
+        SearchHit[] hits = response.getHits().getHits();
+        List<String> hotUserList = new ArrayList();
+        for(SearchHit hit: hits) {
+            hotUserList.add(hit.getId());
         }
+
+        return hotUserList;
     }
 
     public String[] getVertexIds(List<String> friends) {
@@ -105,6 +107,8 @@ public class EsDAOImpl implements IEsDAO {
     }
 
     public static void main(String[] args) {
+        EsDAOImpl d = new EsDAOImpl();
+        d.getHotUsers();
 
     }
 }
