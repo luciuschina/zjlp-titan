@@ -10,6 +10,4 @@ public interface IEsDAO {
 
     List<String> getHotUsers();
 
-    void closeClient();
-
 }

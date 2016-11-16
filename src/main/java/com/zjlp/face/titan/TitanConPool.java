@@ -19,7 +19,7 @@ public class TitanConPool {
     }
 
     public TitanGraph getTitanGraph(String userId) {
-        return getTitanGraph(Math.abs(userId.hashCode()));
+        return getTitanGraph(Math.abs((userId+"101").hashCode()));
     }
 
     public TitanGraph getTitanGraph() {

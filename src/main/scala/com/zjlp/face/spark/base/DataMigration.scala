@@ -71,7 +71,7 @@ class DataMigration extends Logging with scala.Serializable {
     val relInTitan = sqlContext.sql("select userIdTitan, userIdInES as friendUserIdTitan " +
       "from (select userIdInES as userIdTitan ,friendVidTitan from VidRelTitan inner join userIdVIdMap " +
       "on vertexId = userVidTitan) a inner join userIdVIdMap on vertexId = friendVidTitan ")
-      .map(r => (r(0).toString, r(1).toString))
+      .map(r => (r(0).toString, r(1).toString)).persist()
     val relInMysql = sqlContext.sql("select distinct r2.userId as userId1,r1.userId as userId2 from relation r1 inner join (select distinct loginAccount,userId from relation)r2 on r2.loginAccount = r1.username")
       .map(r => (r(0).toString, r(1).toString)).persist()
     val titan = new TitanDAOImpl()
@@ -84,7 +84,7 @@ class DataMigration extends Logging with scala.Serializable {
     relInTitan.unpersist()
     relInMysql.unpersist()
     SparkUtils.dropTempTable(sqlContext, "VidRelTitan")
-    titan.closeTitanGraph()
+    //titan.closeTitanGraph()
   }
 
 
@@ -120,7 +120,6 @@ object DataMigration extends Logging with scala.Serializable {
         titanInit.run()
         dataMigration.addUsers()
         titanInit.userIdUnique(titanInit.getTitanGraph)
-        titanInit.closeTitanGraph()
       }
       if (addRelation) dataMigration.addRelations()
     }

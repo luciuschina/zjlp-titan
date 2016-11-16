@@ -83,6 +83,7 @@ public class TitanInit extends TitanConPool {
     }
 
     public void run() {
+
         cleanTitanGraph();
         TitanGraph graph = getTitanGraph();
         createVertexLabel(graph);

@@ -154,6 +154,7 @@ public class TitanDAOImpl extends TitanConPool implements ITitanDAO, Serializabl
      * @return
      */
     public Map<String, Integer> getFriendsLevel(String userId, List<String> friends) {
+        LOGGER.info("getFriendsLevel:userId:"+userId);
         Map<String, Integer> result = new HashMap<String, Integer>();
         String userVID = esDAO.getVertexId(userId);
         String[] friendsVID = esDAO.getVertexIds(friends);
@@ -179,6 +180,7 @@ public class TitanDAOImpl extends TitanConPool implements ITitanDAO, Serializabl
      * @return
      */
     public Map<Object, Long> getComFriendsNum(String userId, List<String> friends) {
+        LOGGER.info("getComFriendsNum:userId:"+userId);
         String userVID = esDAO.getVertexId(userId);
         String[] vids = esDAO.getVertexIds(friends);
         if (userVID == null || vids.length == 0) {

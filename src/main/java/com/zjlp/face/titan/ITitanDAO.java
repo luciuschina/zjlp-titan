@@ -35,11 +35,4 @@ public interface ITitanDAO {
      */
     Map<Object, Long> getComFriendsNum(String userId, List<String> friends);
 
-    /**
-     * 对好友数多的用户的一二度好友进行提前缓存
-     */
-/*    void cacheHotUsers();*/
-
-    void closeTitanGraph();
-
 }

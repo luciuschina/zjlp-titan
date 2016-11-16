@@ -28,7 +28,7 @@ public class EsDAOImpl implements IEsDAO {
     private String titanEsIndex = Props.get("titan-es-index");
 
     public Client getEsClient() {
-        if (esClient == null) {
+        if (esClient == null ) {
             esClient = EsUtils.getEsClient(Props.get("es.cluster.name"), Props.get("es.nodes"), Integer.valueOf(Props.get("es.client.port")));
         }
         return esClient;
