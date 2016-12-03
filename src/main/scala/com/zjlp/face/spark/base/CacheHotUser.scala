@@ -1,47 +1,43 @@
 package com.zjlp.face.spark.base
 
-import com.zjlp.face.spark.utils.SparkUtils
 import com.zjlp.face.titan.TitanConPool
-import org.apache.spark.Logging
-import org.elasticsearch.spark.rdd.EsSpark
-import org.elasticsearch.spark.rdd.Metadata._
+import com.zjlp.face.titan.impl.EsDAOImpl
+import org.apache.spark.sql.SparkSession
 
-class CacheHotUser extends Logging with scala.Serializable {
+case class IfCache(val userId: String, val isCached: Boolean)
+
+class CacheHotUser(spark: SparkSession) extends scala.Serializable {
   private val friendNumberOfHotUser = Props.get("friend-num-of-hot-user").toInt
+  val esDAO = new EsDAOImpl()
 
   def updateHotUsers = {
-    val sqlContext = MySQLContext.instance()
-    val hotUserInMysql = sqlContext.sql("select userId,count(1) from relation group by userId ")
-      .map(r => (r(0).toString, r(1).toString.toInt)).filter(_._2 >= friendNumberOfHotUser).map(a=> a._1).persist()
-    val hotUserInES = sqlContext.sql("select userIdInES from hotUser where isCached = true").map(r => r(0).toString)
-    val userCache = hotUserInMysql.subtract(hotUserInES).map(a => Tuple2(Map(ID -> a), Map("isCached" -> true)))
-    EsSpark.saveToEsWithMeta(userCache, s"titan-es/ifcache")
-    val userUncache = hotUserInES.subtract(hotUserInMysql).map(a => Tuple2(Map(ID -> a), Map("isCached" -> false)))
-    EsSpark.saveToEsWithMeta(userUncache, s"titan-es/ifcache")
+    import spark.implicits._
+    val hotUserInMysql = spark.sql("select userId,count(1) as friendNum from relation group by userId ")
+      .map(r => (r(0).toString, r(1).toString.toInt)).filter(_._2 >= friendNumberOfHotUser).map(a => a._1).persist()
+    val hotUserInES = spark.sql("select userIdInES from hotUser where isCached = true").map(r => r(0).toString)
+    esDAO.multiCreateIfCache(hotUserInMysql.except(hotUserInES).map(IfCache(_, true)).collectAsList())
+    esDAO.multiCreateIfCache(hotUserInES.except(hotUserInMysql).map(IfCache(_, false)).collectAsList())
   }
 
   def cacheHotUserFromES = {
-    val sqlContext = MySQLContext.instance()
-    SparkUtils.dropTempTables(sqlContext, "hotUser", "hotUserCacheInES")
-    sqlContext.sql(
+    spark.sql(
       s"CREATE TEMPORARY TABLE hotUserCacheInES " +
         s"USING org.elasticsearch.spark.sql " +
         s"OPTIONS (resource '${Props.get("titan-es-index")}/ifcache', es.read.metadata 'true')")
-    sqlContext.sql("SELECT _metadata._id as userIdInES, isCached FROM hotUserCacheInES")
-      .registerTempTable("hotUser")
-    sqlContext.sql("cache table hotUser")
+    spark.sql("SELECT _metadata._id as userIdInES, isCached FROM hotUserCacheInES")
+      .createOrReplaceTempView("hotUser")
+    spark.sql("cache table hotUser")
   }
 }
 
-object CacheHotUser extends Logging with scala.Serializable {
+object CacheHotUser extends scala.Serializable {
   def main(args: Array[String]) {
-    val beginTime = System.currentTimeMillis()
-    val mysql = new MySQL()
+    val spark = Spark.session()
+    val mysql = new JdbcDF(spark)
     mysql.cacheRelationFromMysql
-    val chu = new CacheHotUser()
+    val chu = new CacheHotUser(spark)
     chu.cacheHotUserFromES
     chu.updateHotUsers
     if (Props.get("clean-titan-instances").toBoolean) new TitanConPool().killAllTitanInstances()
-    logInfo(s"共耗时:${(System.currentTimeMillis() - beginTime) / 1000}s")
   }
 }

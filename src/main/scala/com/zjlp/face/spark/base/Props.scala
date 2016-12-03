@@ -2,9 +2,8 @@ package com.zjlp.face.spark.base
 
 import java.io.FileInputStream
 import java.util.Properties
-import org.apache.spark.Logging
 
-object Props extends Logging {
+object Props  {
   private val prop = new Properties()
 
   /**
@@ -14,10 +13,8 @@ object Props extends Logging {
    */
   private def getPropertyFile: String = {
     if (externalPropertiesExist) {
-      logInfo(s"配置文件：${System.getProperty("PropPath")}")
       System.getProperty("PropPath")
     } else {
-      logInfo(s"配置文件：${getClass.getResource("/").getPath() + "config.properties"}")
       getClass().getResource("/").getPath() + "config.properties"
     }
   }

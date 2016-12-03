@@ -13,7 +13,6 @@
 	<dubbo:protocol  name="dubbo"  port="${dubbo.protocol.port}" />
 	<dubbo:service interface="com.zjlp.face.titan.IEsDAO" ref="EsDAOImpl" version="${dubbo.version}" retries="0" timeout="${dubbo.timeout}" />
 
-	<dubbo:service interface="com.zjlp.face.titan.ITitanDAO" loadbalance="consistenthash" ref="TitanDAOImpl" version="${dubbo.version}" retries="0" timeout="${dubbo.timeout}" >
-		<dubbo:parameter key="hash.nodes" value="160" />
-	</dubbo:service>
+	<dubbo:service interface="com.zjlp.face.titan.ITitanDAO" ref="TitanDAOImpl" version="${dubbo.version}" retries="0" timeout="${dubbo.timeout}" />
+
 </beans>
