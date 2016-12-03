@@ -1,11 +1,13 @@
-es_host="192.168.175.11:9200"
+#!/bin/bash
+es_host="192.168.175.12:9200"
+
 titan_es="titan-es"
 curl -XDELETE ${es_host}'/'${titan_es}
 curl -XPUT ${es_host}'/'${titan_es} -d '{
     "settings" : {
         "index" : {
             "number_of_shards" : 60,
-            "number_of_replicas" : 0
+            "number_of_replicas" : 2
         }
     },
     "mappings": {
@@ -25,11 +27,10 @@ curl -XPUT ${es_host}'/'${titan_es} -d '{
               "enabled" : false
             },
             "properties": {
-                "cache": {
+                "isCached": {
                     "type": "boolean"
                 }
             }
         }
-
     }
 }'

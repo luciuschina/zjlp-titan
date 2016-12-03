@@ -27,7 +27,7 @@ public class TitanConPool {
     }
 
     public TitanGraph getTitanGraph(int j) {
-        int i = j % poolSize;
+        int i = Math.abs(j % poolSize);
         if (graphs[i] == null || graphs[i].isClosed()) {
             graphs[i] = TitanFactory.open(Props.get("titan-cassandra"));
         }

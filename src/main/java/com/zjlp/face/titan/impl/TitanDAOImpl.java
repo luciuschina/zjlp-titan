@@ -2,7 +2,7 @@ package com.zjlp.face.titan.impl;
 
 import com.thinkaurelius.titan.core.SchemaViolationException;
 import com.thinkaurelius.titan.core.TitanGraph;
-import com.zjlp.face.bean.UserVertexIdPair;
+import com.zjlp.face.spark.base.UserVertexId;
 import com.zjlp.face.titan.ITitanDAO;
 import com.zjlp.face.titan.TitanConPool;
 import org.apache.tinkerpop.gremlin.process.traversal.P;
@@ -11,6 +11,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSo
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
 import org.apache.tinkerpop.gremlin.process.traversal.util.FastNoSuchElementException;
 import org.apache.tinkerpop.gremlin.structure.T;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -36,7 +37,7 @@ public class TitanDAOImpl extends TitanConPool implements ITitanDAO, Serializabl
         String vid = null;
         try {
             vid = graph.addVertex(T.label, "person", "userId", userId).id().toString();
-            esDAO.create(new UserVertexIdPair(userId, vid));
+            esDAO.create(new UserVertexId(userId, vid));
             graph.tx().commit();
             LOGGER.debug("添加新用户:" + userId);
         } catch (IOException e) {
@@ -61,9 +62,11 @@ public class TitanDAOImpl extends TitanConPool implements ITitanDAO, Serializabl
             g.tx().commit();
             LOGGER.debug("添加好友关系:" + userVId + " -knows-> " + friendVId);
         } catch (SchemaViolationException e) {
+            e.printStackTrace();
             g.tx().rollback();
             LOGGER.warn("已经存在这条边:" + userVId + " -knows-> " + friendVId, e);
         } catch (Exception e) {
+            e.printStackTrace();
             g.tx().rollback();
             LOGGER.error("addRelationByVID出现异常", e);
             throw e;
@@ -171,7 +174,18 @@ public class TitanDAOImpl extends TitanConPool implements ITitanDAO, Serializabl
         }
         return result;
     }
-
+/*
+    public List<UserVertexId> getUserVertexIdList() {
+        TitanGraph graph = getTitanGraph();
+        List<Vertex> vertexList = graph.traversal().V().toList();
+        List<UserVertexId> result = new ArrayList<UserVertexId>();
+        for (Vertex v: vertexList) {
+            if (v.values("userId").hasNext()) {
+                result.add(new UserVertexId(v.values("userId").next().toString(), v.id().toString()));
+            }
+        }
+        return result;
+    }*/
     /**
      * 获取共同好友数
      *
@@ -197,46 +211,8 @@ public class TitanDAOImpl extends TitanConPool implements ITitanDAO, Serializabl
     }
 
     public static void main(String[] args) {
-
-
+        TitanDAOImpl d = new TitanDAOImpl();
+        d.deleteRelation("3850","1196");
     }
 
-/*    private class CacheHotUserThread extends Thread {
-        private String userId;
-
-        public CacheHotUserThread(String name) {
-            super(name);//调用父类带参数的构造方法
-        }
-
-        public CacheHotUserThread(String name, String userId) {
-            new CacheHotUserThread(name);
-            this.userId = userId;
-        }
-
-        public void run() {
-            LOGGER.info("热点用户(" + this.userId + ")开始缓存");
-            List<String> friends = new ArrayList<String>();
-            friends.add(this.userId);
-            getComFriendsNum(this.userId, friends);
-            LOGGER.info("热点用户(" + this.userId + ")缓存完毕");
-        }
-    }
-
-
-    public void cacheHotUsers() {
-        List<String> hotUsers = esDAO.getHotUsers();
-        long interval = Integer.valueOf(Props.get("cache-interval-hot-user"));
-        long begin = System.currentTimeMillis();
-        LOGGER.info("开始缓存热点用户");
-        for (String hotUser : hotUsers) {
-            //如果该方法执行了50分钟还没执行完，那么就不再执行了
-            if ((System.currentTimeMillis() - begin) > 3000000) return;
-            new CacheHotUserThread("thread_" + hotUser, hotUser).run();
-            try {
-                Thread.sleep(interval);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-    }*/
 }
