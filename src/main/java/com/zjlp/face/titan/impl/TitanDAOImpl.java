@@ -212,7 +212,8 @@ public class TitanDAOImpl extends TitanConPool implements ITitanDAO, Serializabl
 
     public static void main(String[] args) {
         TitanDAOImpl d = new TitanDAOImpl();
-        d.deleteRelation("3850","1196");
+        d.addRelation("4","111117");
+        System.exit(0);
     }
 
 }

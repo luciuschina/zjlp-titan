@@ -1,13 +1,13 @@
 package com.zjlp.face.spark.base
 
 import com.zjlp.face.spark.utils.SparkUtils
-import com.zjlp.face.titan.TitanInit
+import com.zjlp.face.titan.{TitanConPool, TitanInit}
 import com.zjlp.face.titan.impl.{EsDAOImpl, TitanDAOImpl}
 import org.apache.spark.sql.SparkSession
 import scala.collection.JavaConversions._
 
 case class UserVertexId(val userId: String, val vertexId: String)
-
+case class FriendShip(val userId:String, val friendUserId:String)
 class DataMigration(val spark: SparkSession) extends scala.Serializable {
   private val esDAO = new EsDAOImpl()
   private val titanDAO = new TitanDAOImpl()
@@ -65,27 +65,37 @@ class DataMigration(val spark: SparkSession) extends scala.Serializable {
    * 7、(步骤4的好友关系) substract (步骤3的好友关系) = 需要往Titan中添加的好友关系
    */
   private def relationsSyn(): Unit = {
-    val partitionNum = Props.get("spark.default.parallelism").toString.toInt
     import spark.implicits._
     getIdMapFromES //1
     getVidRelationsFromTitan //2
 
-    val relInTitan = spark.sql("select userIdTitan, userIdInES as friendUserIdTitan " +
+    spark.sql("select userIdTitan, userIdInES as friendUserIdTitan " +
         "from (select userIdInES as userIdTitan ,friendVidTitan from VidRelTitan inner join userIdVIdMap " +
         "on vertexId = userVidTitan) a inner join userIdVIdMap on vertexId = friendVidTitan ")
-        .map(r => (r(0).toString, r(1).toString)).repartition(partitionNum).persist()
-    val relInMysql = spark.sql("select distinct r2.userId as userId1,r1.userId as userId2 from relation r1 inner join (select distinct loginAccount,userId from relation)r2 on r2.loginAccount = r1.username")
-      .map(r => (r(0).toString, r(1).toString)).repartition(partitionNum).persist()
+        .createOrReplaceTempView("friendshipInTitan")
+
+    spark.sql("select distinct r2.userId as userIdSql,r1.userId as friendUserIdSql from relation r1 inner join (select distinct loginAccount,userId from relation)r2 on r2.loginAccount = r1.username")
+      .createOrReplaceTempView("friendshipInSql")
 
     val userInMysql = spark.sql("select distinct userId from relation")
       .map(r => r(0).toString)
     val userInTitan = spark.sql("select distinct userIdInES from userIdVIdMap").map(r => r(0).toString)
-    userInMysql.except(userInTitan).collect().foreach(userId => titanDAO.addUser(userId, titanDAO.getTitanGraph)) //5
-    relInTitan.except(relInMysql).collect().foreach(rel => titanDAO.deleteRelation(rel._1, rel._2)) //6
-    relInMysql.except(relInTitan).collect().foreach(rel => titanDAO.addRelation(rel._1, rel._2)) //7
-    relInTitan.unpersist()
-    relInMysql.unpersist()
-    SparkUtils.dropTempTable(spark, "VidRelTitan")
+    userInMysql.except(userInTitan).collect().foreach {
+      userId => titanDAO.addUser(userId, titanDAO.getTitanGraph);
+    } //5
+
+    spark.sql("select userIdSql,friendUserIdSql,userIdTitan,friendUserIdTitan from friendshipInTitan full outer  join friendshipInSql on userIdSql = userIdTitan and friendUserIdSql =  friendUserIdTitan where userIdSql is null or userIdTitan is null")
+    .createOrReplaceTempView("resultTable")
+    spark.sql("cache table resultTable")
+    spark.sql("select userIdTitan as userId,friendUserIdTitan as friendUserId from resultTable where userIdTitan is not null")
+      .as[FriendShip]
+      .rdd.collect()
+      .foreach(friendShip => titanDAO.deleteRelation(friendShip.userId, friendShip.friendUserId))
+
+    spark.sql("select userIdSql as userId,friendUserIdSql as friendUserId from resultTable where userIdSql is not null")
+      .as[FriendShip]
+      .rdd.collect()
+      .foreach(friendShip => titanDAO.addRelation(friendShip.userId, friendShip.friendUserId))
   }
 
 

@@ -1,6 +1,5 @@
 package com.zjlp.face.spark.utils
 
-import com.zjlp.face.spark.base.Props
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
