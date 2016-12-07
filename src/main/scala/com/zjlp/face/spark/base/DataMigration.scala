@@ -1,18 +1,16 @@
 package com.zjlp.face.spark.base
 
 import com.zjlp.face.spark.utils.SparkUtils
-import com.zjlp.face.titan.{TitanConPool, TitanInit}
-import com.zjlp.face.titan.impl.{EsDAOImpl, TitanDAOImpl}
+import com.zjlp.face.titan.TitanInit
+import com.zjlp.face.titan.impl.TitanDAOImpl
 import org.apache.spark.sql.SparkSession
 import scala.collection.JavaConversions._
 
 case class UserVertexId(val userId: String, val vertexId: String)
 case class FriendShip(val userId:String, val friendUserId:String)
 class DataMigration(val spark: SparkSession) extends scala.Serializable {
-  private val esDAO = new EsDAOImpl()
   private val titanDAO = new TitanDAOImpl()
   private def getIdMapFromES = {
-    //logInfo("从ES加载userId-vertexId索引数据")
     spark.sql(
       s"CREATE TEMPORARY TABLE userIdVIdInES " +
         s"USING org.elasticsearch.spark.sql " +
@@ -55,19 +53,11 @@ class DataMigration(val spark: SparkSession) extends scala.Serializable {
 
   /**
    * 数据同步，即对比titan与mysql中的数据是否一致，如果不一致就增量更新为与mysql中的一致
-   * 步骤：
-   * 1、从ES中的titan-es索引中读取userId和VID的对应关系
-   * 2、分片使用g.V(vid).out('knows').id 得到好友关系，可以得到 userVID - friendVID的对应关系
-   * 3、结合步骤1和步骤2 从Titan中得到现有 userId - frienduserId 的对应关系
-   * 4、从mysql中得到现有 userId - frienduserId 的对应关系
-   * 5、比较有哪些新增的用户。往Titan中添加这些用户
-   * 6、(步骤3的好友关系) substract (步骤4的好友关系) = 需要从Titan中删除的好友关系
-   * 7、(步骤4的好友关系) substract (步骤3的好友关系) = 需要往Titan中添加的好友关系
-   */
+   **/
   private def relationsSyn(): Unit = {
     import spark.implicits._
-    getIdMapFromES //1
-    getVidRelationsFromTitan //2
+    getIdMapFromES
+    getVidRelationsFromTitan
 
     spark.sql("select userIdTitan, userIdInES as friendUserIdTitan " +
         "from (select userIdInES as userIdTitan ,friendVidTitan from VidRelTitan inner join userIdVIdMap " +
@@ -82,7 +72,7 @@ class DataMigration(val spark: SparkSession) extends scala.Serializable {
     val userInTitan = spark.sql("select distinct userIdInES from userIdVIdMap").map(r => r(0).toString)
     userInMysql.except(userInTitan).collect().foreach {
       userId => titanDAO.addUser(userId, titanDAO.getTitanGraph);
-    } //5
+    }
 
     spark.sql("select userIdSql,friendUserIdSql,userIdTitan,friendUserIdTitan from friendshipInTitan full outer  join friendshipInSql on userIdSql = userIdTitan and friendUserIdSql =  friendUserIdTitan where userIdSql is null or userIdTitan is null")
     .createOrReplaceTempView("resultTable")
@@ -118,24 +108,18 @@ object DataMigration extends scala.Serializable {
     val beginTime = System.currentTimeMillis()
     val dataMigration = new DataMigration(spark)
 
-    val addUser = Props.get("add-user").toBoolean
-    val addRelation = Props.get("add-relation").toBoolean
-    val relationSyn = Props.get("relation-syn").toBoolean
-
     val mysql = new JdbcDF(spark)
     mysql.cacheRelationFromMysql
 
-    if (addUser || addRelation) {
-      if (addUser) {
+    if (Props.get("clean-init-data").toBoolean) {
         val titanInit = new TitanInit()
         titanInit.run()
         dataMigration.addUsers()
         titanInit.userIdUnique(titanInit.getTitanGraph)
-      }
-      if (addRelation) dataMigration.addRelations()
+        dataMigration.addRelations()
     }
 
-    if (relationSyn) {
+    if (Props.get("relation-syn").toBoolean) {
       dataMigration.relationsSyn()
     }
 

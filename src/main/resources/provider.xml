@@ -7,12 +7,10 @@
     http://code.alibabatech.com/schema/dubbo/dubbo.xsd">
 	<!-- 消费方应用名，用于计算依赖关系，不是匹配条件，不要与提供方一样 -->
 	<dubbo:application name="${dubbo.service.name}" />
-
 	<dubbo:registry address="${dubbo.registry.address}" file="${dubbo.registry.file}" />
 	<dubbo:consumer check="false"></dubbo:consumer>
 	<dubbo:protocol  name="dubbo"  port="${dubbo.protocol.port}" />
 	<dubbo:service interface="com.zjlp.face.titan.IEsDAO" ref="EsDAOImpl" version="${dubbo.version}" retries="0" timeout="${dubbo.timeout}" />
-
 	<dubbo:service interface="com.zjlp.face.titan.ITitanDAO" ref="TitanDAOImpl" version="${dubbo.version}" retries="0" timeout="${dubbo.timeout}" />
 
 </beans>
