@@ -30,9 +30,42 @@
 
     <profiles>
         <profile>
+            <id>dev</id>
+            <properties>
+                <env>dev</env>
+            </properties>
+        </profile>
+        <profile>
+            <id>dev-stable</id>
+            <properties>
+                <env>dev-stable</env>
+            </properties>
+        </profile>
+        <profile>
+            <id>dev-test</id>
+            <properties>
+                <env>dev-test</env>
+            </properties>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+        </profile>
+        <profile>
+            <id>test</id>
+            <properties>
+                <env>test</env>
+            </properties>
+        </profile>
+        <profile>
             <id>test-rel</id>
             <properties>
                 <env>test-rel</env>
+            </properties>
+        </profile>
+        <profile>
+            <id>pro</id>
+            <properties>
+                <env>pro</env>
             </properties>
         </profile>
         <profile>
@@ -42,6 +75,7 @@
             </properties>
         </profile>
     </profiles>
+
 
     <dependencies>
         <dependency>
@@ -405,7 +439,7 @@
                 </plugin>
         </plugins>
         <filters>
-            <filter>src/main/filters/filter-dev.properties</filter>
+            <filter>src/main/filters/filter-${env}.properties</filter>
         </filters>
         <resources>
             <resource>

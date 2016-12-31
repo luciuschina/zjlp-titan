@@ -6,12 +6,12 @@ import com.zjlp.face.spark.base.UserVertexId;
 import com.zjlp.face.titan.ITitanDAO;
 import com.zjlp.face.titan.TitanConPool;
 import org.apache.tinkerpop.gremlin.process.traversal.P;
+import org.apache.tinkerpop.gremlin.process.traversal.Path;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
 import org.apache.tinkerpop.gremlin.process.traversal.util.FastNoSuchElementException;
 import org.apache.tinkerpop.gremlin.structure.T;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -174,18 +174,7 @@ public class TitanDAOImpl extends TitanConPool implements ITitanDAO, Serializabl
         }
         return result;
     }
-/*
-    public List<UserVertexId> getUserVertexIdList() {
-        TitanGraph graph = getTitanGraph();
-        List<Vertex> vertexList = graph.traversal().V().toList();
-        List<UserVertexId> result = new ArrayList<UserVertexId>();
-        for (Vertex v: vertexList) {
-            if (v.values("userId").hasNext()) {
-                result.add(new UserVertexId(v.values("userId").next().toString(), v.id().toString()));
-            }
-        }
-        return result;
-    }*/
+
     /**
      * 获取共同好友数
      *
@@ -207,6 +196,54 @@ public class TitanDAOImpl extends TitanConPool implements ITitanDAO, Serializabl
                     .where(__.hasId(vids))
                     .where(P.without("u"))
                     .values("userId").groupCount().next();
+        }
+    }
+
+    public Map<String, Set<String>> getMultiComFriends(String userId, List<String> anotherUserIds) {
+        LOGGER.info("getComFriendsNum:userId:" + userId);
+        String userVID = esDAO.getVertexId(userId);
+        String[] anotherVIDs = esDAO.getVertexIds(anotherUserIds);
+        if (userVID == null || anotherVIDs.length == 0) {
+            LOGGER.info("不存在userId:" + userId + "顶点");
+            return new HashMap<String, Set<String>>();
+        } else {
+            List<Path> paths = getTitanGraph(userId).traversal()
+                    .V(userVID).aggregate("u")
+                    .out("knows")
+                    .out("knows")
+                    .where(__.hasId(anotherVIDs)).where(P.without("u")).path().by("userId").toList();
+            Map<String, Set<String>> result = new HashMap<String, Set<String>>();
+            String key = null;
+            Set<String> valueSet = null;
+            for (Path p : paths) {
+                key = p.get(2).toString();
+                if (result.containsKey(key)) {
+                    valueSet = result.get(key);
+                    valueSet.add(p.get(1).toString());
+                    result.put(key, valueSet);
+                } else {
+                    Set<String> set = new HashSet<String>();
+                    set.add(p.get(1).toString());
+                    result.put(key, set);
+                }
+            }
+            return result;
+        }
+    }
+
+    public Set<String> getComFriends(String userId, String anotherUserId) {
+        String anotherVID = esDAO.getVertexId(anotherUserId);
+        if (anotherVID == null) {
+            LOGGER.info("不存在userId:" + anotherUserId + "顶点");
+            return new HashSet<String>();
+        } else {
+            Set<Object> objectSet = getTitanGraph(userId).traversal().V().has("userId", userId).out("knows")
+                    .where(__.out("knows").hasId(anotherVID)).values("userId").toSet();
+            Set<String> result = new HashSet<String>();
+            for (Object o : objectSet) {
+                result.add((String) o);
+            }
+            return result;
         }
     }
 

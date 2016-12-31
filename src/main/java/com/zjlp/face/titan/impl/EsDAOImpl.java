@@ -1,6 +1,5 @@
 package com.zjlp.face.titan.impl;
 
-import com.zjlp.face.spark.base.IfCache;
 import com.zjlp.face.spark.base.Props;
 import com.zjlp.face.spark.base.UserVertexId;
 import com.zjlp.face.spark.utils.EsUtils;
@@ -50,24 +49,6 @@ public class EsDAOImpl implements IEsDAO ,Serializable {
                                 .endObject()));
             } catch (Exception e) {
                 LOGGER.error("ES插入索引失败.userId:" + item.userId() + ",vertexId:" + item.vertexId(), e);
-            }
-        }
-        bulkRequest.get();
-    }
-
-    public void multiCreateIfCache(List<IfCache> items) {
-        if (items.isEmpty()) return;
-        Client client = getEsClient();
-        BulkRequestBuilder bulkRequest = client.prepareBulk();
-        for (IfCache item : items) {
-            try {
-                bulkRequest.add(client.prepareIndex(titanEsIndex, "ifcache", item.userId())
-                        .setSource(jsonBuilder()
-                                .startObject()
-                                .field("isCached", item.isCached())
-                                .endObject()));
-            } catch (Exception e) {
-                e.printStackTrace();
             }
         }
         bulkRequest.get();
